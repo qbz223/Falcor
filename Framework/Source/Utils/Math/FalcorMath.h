@@ -32,6 +32,7 @@
 #include "glm/gtc/matrix_transform.hpp"
 #define _USE_MATH_DEFINES
 #include <math.h>
+#include "Sequences.h"
 
 namespace Falcor
 {
@@ -160,7 +161,7 @@ namespace Falcor
     }
 
     // Base 2 Van der Corput radical inverse
-    inline float radicalInverse(uint32_t i)
+    inline float fastBase2RadicalInverse(uint32_t i)
     {
         i = (i & 0x55555555) << 1 | (i & 0xAAAAAAAA) >> 1;
         i = (i & 0x33333333) << 2 | (i & 0xCCCCCCCC) >> 2;
@@ -170,27 +171,28 @@ namespace Falcor
         return float(i) * 2.3283064365386963e-10f;
     }
 
-    inline vec3 hammersleyUniform(uint32_t i, uint32_t n)
+
+
+    //  Return a Hammersley Sample on the Unit Hemisphere.
+    inline vec3 getHammersleyPointOnUniformHemisphere(uint32_t i, uint32_t n)
     {
-        vec2 uv((float)i / (float)n, radicalInverse(i));
+        vec2 uv((float)i / (float)n, fastBase2RadicalInverse(i));
 
         // Map to radius 1 hemisphere
-        float phi = uv.y * 2.0f * (float)M_PI;
-        float t = 1.0f - uv.x;
-        float s = sqrt(1.0f - t * t);
-        return vec3(s * cos(phi), s * sin(phi), t);
+        return mapToUniformHemisphereSample(uv);
     }
-
-    inline vec3 hammersleyCosine(uint32_t i, uint32_t n)
+    
+    //  Return a Hammersley Sample, Cosine Weighted, on the Unit Hemisphere.
+    inline vec3 getHammersleySampleOnCosineWeightedHemisphere(uint32_t i, uint32_t n)
     {
-        vec2 uv((float)i / (float)n, radicalInverse(i));
+        vec2 uv((float)i / (float)n, fastBase2RadicalInverse(i));
 
-        // Map to radius 1 hemisphere
-        float phi = uv.y * 2.0f * (float)M_PI;
-        float t = sqrt(1.0f - uv.x);
-        float s = sqrt(1.0f - t * t);
-        return vec3(s * cos(phi), s * sin(phi), t);
+        //  Return a Hammersley Sample on the Unit Sphere.
+        return mapToCosineWeightedHemisphereSample(uv);
     }
+
+    
+
 #ifndef GLM_CLIP_SPACE_Y_TOPDOWN
 #error GLM_CLIP_SPACE_Y_TOPDOWN is undefined. It means the custom fix we did in GLM to support Vulkan NDC space is missing. Look at GLM's `setup.hpp` and `glm\gtc\matrix_transform.inl`
 #endif

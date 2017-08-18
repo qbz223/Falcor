@@ -206,11 +206,11 @@ namespace Falcor
                     break;
 
                 case SampleDistribution::UniformHammersley:
-                    p = hammersleyUniform(i, kernelSize);
+                    p = getHammersleyPointOnUniformHemisphere(i, kernelSize);
                     break;
 
                 case SampleDistribution::CosineHammersley:
-                    p = hammersleyCosine(i, kernelSize);
+                    p = getHammersleySampleOnCosineWeightedHemisphere(i, kernelSize);
                     break;
                 }
 

@@ -1066,6 +1066,7 @@
     <ClInclude Include="Utils\Math\CubicSpline.h" />
     <ClInclude Include="Utils\Math\FalcorMath.h" />
     <ClInclude Include="Utils\Math\ParallelReduction.h" />
+    <ClInclude Include="Utils\Math\Sequences.h" />
     <ClInclude Include="Utils\MonitorInfo.h" />
     <ClInclude Include="Utils\OS.h" />
     <ClInclude Include="Utils\Picking\Picking.h" />
