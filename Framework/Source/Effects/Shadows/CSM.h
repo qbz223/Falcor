@@ -133,7 +133,7 @@ namespace Falcor
         std::shared_ptr<CsmSceneRenderer> mpCsmSceneRenderer;
         std::shared_ptr<SceneRenderer> mpSceneRenderer;
 
-        void calcDistanceRange(RenderContext* pRenderCtx, const Camera* pCamera, Texture::SharedPtr pDepthBuffer, glm::vec2& distanceRange);
+        vec2 calcDistanceRange(RenderContext* pRenderCtx, const Camera* pCamera, Texture::SharedPtr pDepthBuffer);
         void createShadowPassResources(uint32_t mapWidth, uint32_t mapHeight);
         void partitionCascades(const Camera* pCamera, const glm::vec2& distanceRange);
         void renderScene(RenderContext* pCtx);
@@ -161,7 +161,7 @@ namespace Falcor
         };
         SdsmData mSdsmData;
         void createSdsmData(Texture::SharedPtr pTexture);
-        void reduceDepthSdsmMinMax(RenderContext* pRenderCtx, const Camera* pCamera, Texture::SharedPtr pDepthBuffer, glm::vec2& distanceRange);
+        vec2 reduceDepthSdsmMinMax(RenderContext* pRenderCtx, const Camera* pCamera, Texture::SharedPtr pDepthBuffer);
         void createVsmSampleState(uint32_t maxAnisotropy);
 
         GaussianBlur::UniquePtr mpGaussianBlur;
@@ -188,7 +188,7 @@ namespace Falcor
         int32_t renderCascade = 0;
         Controls mControls;
         CsmData mCsmData;
-
+        vec2 mSdsmRange; // Cache the last SDSM result so that we can present it in the GUI
         ProgramVars::BindLocation mPerLightCbLoc;
     };
 }
