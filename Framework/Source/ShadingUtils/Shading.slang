@@ -64,7 +64,7 @@ float3 RgbToNormal(float3 rgb)
 float3 RgToNormal(float2 rg)
 {
     float3 n;
-    n.xy = rg;
+    n.xy = rg * 2 - 1;
     n.z = dot(rg, rg); // z = r*r + g*g
     n.z = sqrt(1 - n.z);
     return n;
@@ -89,7 +89,8 @@ void applyNormalMap(MaterialData m, inout HitPoint hitPt)
     default:
         return;
     }
-
+    
+    mapN = normalize(mapN);
     // Apply the transformation. Everything is normalized already
     hitPt.N = hitPt.T * mapN.x + hitPt.B * mapN.y + hitPt.N * mapN.z;
     hitPt.B = normalize(hitPt.B - hitPt.N * dot(hitPt.B, hitPt.N));
