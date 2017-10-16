@@ -104,9 +104,11 @@ struct HitPoint
     float     NdotV;
 
     // Pre-loaded texture data
-    float4 diffuse;
-    float4 specular;
-    float4 emissive;
+    float3 diffuse;
+    float  opacity;
+    float3 specular;
+    float  roughness;
+    float3 emissive;
     float4 occlusion;
     float4 reflection;
     float4 bakedLight;

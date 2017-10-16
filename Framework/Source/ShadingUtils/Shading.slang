@@ -31,6 +31,7 @@
 __import DefaultVS;
 __exported __import ShaderCommon;
 __import Lights;
+__import BRDF;
 
 /** Load data from a texture
 */
@@ -113,8 +114,10 @@ HitPoint prepareHitPoint(VertexOut v, MaterialData m, float3 camPosW)
 {
     HitPoint hitPt;
     // Sample the diffuse texture and apply the alpha test
-    hitPt.diffuse = sampleTexture(m.textures.diffuse, m.samplerState, v.texC, m.diffuse, EXTRACT_DIFFUSE_TYPE(m.flags));
-    applyAlphaTest(m, hitPt.diffuse.a);
+    float4 diffuse = sampleTexture(m.textures.diffuse, m.samplerState, v.texC, m.diffuse, EXTRACT_DIFFUSE_TYPE(m.flags));
+    hitPt.diffuse = diffuse.rgb;
+    hitPt.opacity = diffuse.a;
+    applyAlphaTest(m, diffuse.a);
 
     hitPt.posW = v.posW;
     hitPt.uv = v.texC;
@@ -124,8 +127,11 @@ HitPoint prepareHitPoint(VertexOut v, MaterialData m, float3 camPosW)
     hitPt.T = normalize(cross(hitPt.B, hitPt.N));
 
     // Sample the rest of the texture
-    hitPt.specular = sampleTexture(m.textures.specular, m.samplerState, v.texC, m.specular, EXTRACT_SPECULAR_TYPE(m.flags));
-    hitPt.emissive = sampleTexture(m.textures.emissive, m.samplerState, v.texC, float4(m.emissive, 1), EXTRACT_EMISSIVE_TYPE(m.flags));
+    float4 spec = sampleTexture(m.textures.specular, m.samplerState, v.texC, m.specular, EXTRACT_SPECULAR_TYPE(m.flags));
+    hitPt.specular = spec.rgb;
+    hitPt.roughness = (1 - spec.a);
+    hitPt.roughness *= hitPt.roughness;
+    hitPt.emissive = sampleTexture(m.textures.emissive, m.samplerState, v.texC, float4(m.emissive, 1), EXTRACT_EMISSIVE_TYPE(m.flags)).rgb;
 
 #define channel_type(extract) (extract(m.flags) ? ChannelTypeTexture : ChannelTypeUnused)
     hitPt.occlusion = sampleTexture(m.textures.occlusionMap, m.samplerState, v.texC, 1, channel_type(EXTRACT_OCCLUSION_MAP));
@@ -142,19 +148,9 @@ HitPoint prepareHitPoint(VertexOut v, MaterialData m, float3 camPosW)
     return hitPt;
 }
 
-/** Shading routines
-*/
-float3 evalDiffuse(HitPoint hitPt, MaterialData mat, LightSample ls)
-{
-    // Lambertian diffuse
-    float ndotl = ls.NdotL;
-    ndotl = EXTRACT_DOUBLE_SIDED(mat.flags) ? abs(ndotl) : max(0, ndotl);
-    return ndotl * ls.intensity;
-}
-
 ShadingResult evalMaterial(HitPoint hitPt, MaterialData mat, LightData light, float shadowFactor)
 {
-    LightSample ls = evalLight(light, hitPt);
+    LightSample ls = evalLight(light, hitPt, EXTRACT_DOUBLE_SIDED(mat.flags));
 
     ShadingResult sr;
     sr.diffuseIllumination = evalDiffuse(hitPt, mat, ls);

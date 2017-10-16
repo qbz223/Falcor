@@ -2251,5 +2251,8 @@
     <None Include="ShadingUtils\Lights.slang">
       <Filter>ShadingUtils</Filter>
     </None>
+    <None Include="ShadingUtils\BRDF.slang">
+      <Filter>ShadingUtils</Filter>
+    </None>
   </ItemGroup>
 </Project>
