@@ -47,9 +47,9 @@ float3 fresnelSchlick(float3 f0, float3 f90, float u)
 */
 float3 evalDiffuseLambert(HitPoint hitPt, MaterialData mat, LightSample ls)
 {
-    // Lambertian diffuse
     return ls.NdotL * ls.intensity;
 }
+
 /** Disney's diffuse term. Based on https://disney-animation.s3.amazonaws.com/library/s2012_pbs_disney_brdf_notes_v2.pdf
 */
 float3 evalDiffuseDisney(HitPoint hitPt, MaterialData mat, LightSample ls)
