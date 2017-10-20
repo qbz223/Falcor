@@ -43,10 +43,10 @@ struct LightSample
 void calcCommonLightProperties(HitPoint hitPt, inout LightSample ls, bool doubleSided)
 {
     float3 H = normalize(hitPt.V + ls.L);
-    ls.NdotH = dot(hitPt.N, H);
-    ls.NdotL = dot(hitPt.N, ls.L);
-    ls.NdotL = doubleSided ? abs(ls.NdotL) : max(0, ls.NdotL);
-    ls.LdotH = dot(ls.L, H);
+    ls.NdotH = saturate(dot(hitPt.N, H));
+    ls.NdotL = saturate(dot(hitPt.N, ls.L));
+    ls.NdotL = doubleSided ? abs(ls.NdotL) : saturate(ls.NdotL);
+    ls.LdotH = saturate(dot(ls.L, H));
 };
 
 float getDistanceFalloff(float distSquared)

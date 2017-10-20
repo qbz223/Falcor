@@ -130,6 +130,7 @@ HitPoint prepareHitPoint(VertexOut v, MaterialData m, float3 camPosW)
     float4 spec = sampleTexture(m.textures.specular, m.samplerState, v.texC, m.specular, EXTRACT_SPECULAR_TYPE(m.flags));
     hitPt.specular = spec.rgb;
     hitPt.roughness = (1 - spec.a);
+    hitPt.roughness = max(0.08, hitPt.roughness); // Clamp the roughness so that the BRDF won't explode
     hitPt.roughness *= hitPt.roughness;
     hitPt.emissive = sampleTexture(m.textures.emissive, m.samplerState, v.texC, float4(m.emissive, 1), EXTRACT_EMISSIVE_TYPE(m.flags)).rgb;
 
@@ -141,9 +142,9 @@ HitPoint prepareHitPoint(VertexOut v, MaterialData m, float3 camPosW)
     hitPt.height.xy = hitPt.height.xy * m.heightScaleOffset.x + m.heightScaleOffset.y;
 #undef channel_type
 
-    hitPt.NdotV = 0; // Need to initialize it otherwise the compiler complaines about uninitialized variable when calling applyNormalMap()
+    hitPt.NdotV = 0; // Need to initialize it otherwise the compiler complains about uninitialized variable when calling applyNormalMap()
     applyNormalMap(m, hitPt);
-    hitPt.NdotV = dot(hitPt.N, hitPt.V);
+    hitPt.NdotV = abs(dot(hitPt.N, hitPt.V)) + 1e-5f;
 
     return hitPt;
 }
@@ -153,11 +154,15 @@ ShadingResult evalMaterial(HitPoint hitPt, MaterialData mat, LightData light, fl
     LightSample ls = evalLight(light, hitPt, EXTRACT_DOUBLE_SIDED(mat.flags));
 
     ShadingResult sr;
+    sr.diffuseIllumination = 0;
+    sr.color = 0;
+    sr.specularIllumination = 0;
+    
     sr.diffuseIllumination = evalDiffuse(hitPt, mat, ls);
     sr.color = hitPt.diffuse.rgb * sr.diffuseIllumination * (1 / M_PI);
 
-    sr.specularIllumination = 0;
-    
+    sr.specularIllumination = evalSpecular(hitPt, mat, ls);
+    sr.color += sr.specularIllumination;
     return sr;
 };
 

@@ -86,4 +86,31 @@ float3 evalDiffuse(HitPoint hitPt, MaterialData mat, LightSample ls)
 #endif
 }
 
+float evalGGX(float roughness, float NdotH)
+{
+    float a2 = roughness * roughness;
+    float d = ((NdotH * a2 - NdotH) * NdotH + 1) * M_PI;
+    return a2 / d;
+}
+
+float evalSmithGgxCorrelated(float NdotL, float NdotV, float roughness)
+{
+    float roughness2 = roughness * roughness;
+    float ggxv = NdotL * sqrt((-NdotV * roughness2 + NdotV) * NdotV + roughness2);
+    float ggxl = NdotV * sqrt((-NdotL * roughness2 + NdotL) * NdotL + roughness2);
+    return 0.5f / (ggxv + ggxl);
+
+}
+
+float3 evalSpecular(HitPoint hitPt, MaterialData mat, LightSample ls)
+{
+    if (ls.NdotL * hitPt.NdotV <= 0.f)
+    {
+        return 0;
+    }
+    float D = evalGGX(hitPt.roughness, ls.NdotH);
+    float G = evalSmithGgxCorrelated(ls.NdotL, max(0, hitPt.NdotV), hitPt.roughness);
+    float3 F = fresnelSchlick(hitPt.specular, 1, max(0, ls.LdotH));
+    return D * G * F * ls.intensity / (4 * max(1e-3, hitPt.NdotV));
+}
 #endif	// _FALCOR_BRDF_SLANG_
