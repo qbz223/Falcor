@@ -58,6 +58,8 @@ namespace Falcor
             ConstantBuffer::SharedPtr operator[](uint32_t index) = delete; // No set by index. This is here because if we didn't explicitly delete it, the compiler will try to convert to int into a string, resulting in runtime error
         };
 
+        using GlobalBlockLocation = ParameterBlock::BindLocation;
+
         /** Bind a constant buffer object by name.
             If the name doesn't exists or the CBs size doesn't match the required size, the call will fail.
             If a buffer was previously bound it will be released.
@@ -75,6 +77,7 @@ namespace Falcor
             \return false is the call failed, otherwise true
         */
         bool setConstantBuffer(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex, const ConstantBuffer::SharedPtr& pCB);
+        bool setConstantBuffer(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex, const ConstantBuffer::SharedPtr& pCB);
 
         /** Get a constant buffer object.
             \param[in] name The name of the buffer
@@ -87,6 +90,7 @@ namespace Falcor
             \return If the index is valid, a shared pointer to the buffer. Otherwise returns nullptr
         */
         ConstantBuffer::SharedPtr getConstantBuffer(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex) const;
+        ConstantBuffer::SharedPtr getConstantBuffer(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex) const;
 
         /** Set a raw-buffer. Based on the shader reflection, it will be bound as either an SRV or a UAV
             \param[in] name The name of the buffer
@@ -142,6 +146,7 @@ namespace Falcor
             \param[in] arrayIndex Index into array, if applicable. Use 0 otherwise
         */
         bool setSrv(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex, const ShaderResourceView::SharedPtr& pSrv);
+        bool setSrv(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex, const ShaderResourceView::SharedPtr& pSrv);
 
         /** Bind a UAV.
             \param[in] regSpace Register space the UAV is located in
@@ -149,6 +154,7 @@ namespace Falcor
             \param[in] arrayIndex Index into array, if applicable. Use 0 otherwise
         */
         bool setUav(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex, const UnorderedAccessView::SharedPtr& pUav);
+        bool setUav(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex, const UnorderedAccessView::SharedPtr& pUav);
 
         /** Get an SRV object.
             \param[in] regSpace Register space the SRV is located in
@@ -157,6 +163,7 @@ namespace Falcor
             \return If the index is valid, a shared pointer to the SRV. Otherwise returns nullptr
         */
         ShaderResourceView::SharedPtr getSrv(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex) const;
+        ShaderResourceView::SharedPtr getSrv(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex) const;
 
         /** Get a UAV object
             \param[in] regSpace Register space the UAV is located in
@@ -165,6 +172,7 @@ namespace Falcor
             \return If the index is valid, a shared pointer to the UAV. Otherwise returns nullptr
         */
         UnorderedAccessView::SharedPtr getUav(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex) const;
+        UnorderedAccessView::SharedPtr getUav(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex) const;
 
         /** Bind a sampler to the program in the global namespace.
             \param[in] name The name of the sampler object in the shader
@@ -180,6 +188,7 @@ namespace Falcor
             \return false if the sampler was not found in the program, otherwise true
         */
         bool setSampler(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex, const Sampler::SharedPtr& pSampler);
+        bool setSampler(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex, const Sampler::SharedPtr& pSampler);
 
         /** Gets a sampler object.
             \return If the index is valid, a shared pointer to the sampler. Otherwise returns nullptr
@@ -190,6 +199,7 @@ namespace Falcor
             \return If the index is valid, a shared pointer to the sampler. Otherwise returns nullptr
         */
         Sampler::SharedPtr getSampler(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex) const;
+        Sampler::SharedPtr getSampler(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex) const;
 
         /** Get the program reflection interface
         */

@@ -591,6 +591,28 @@ namespace Falcor
         return SharedPtr(new ProgramReflection(pSlangReflector, log));
     }
 
+    ProgramReflection::BindType getBindTypeFromSetType(DescriptorSet::Type type)
+    {
+        switch (type)
+        {
+        case DescriptorSet::Type::Cbv:
+            return ProgramReflection::BindType::Cbv;
+        case DescriptorSet::Type::Sampler:
+            return ProgramReflection::BindType::Sampler;
+        case DescriptorSet::Type::StructuredBufferSrv:
+        case DescriptorSet::Type::TextureSrv:
+        case DescriptorSet::Type::TypedBufferSrv:
+            return ProgramReflection::BindType::Srv;
+        case DescriptorSet::Type::StructuredBufferUav:
+        case DescriptorSet::Type::TextureUav:
+        case DescriptorSet::Type::TypedBufferUav:
+            return ProgramReflection::BindType::Uav;
+        default:
+            should_not_get_here();
+            return ProgramReflection::BindType(-1);
+        }
+    }
+
     ProgramReflection::ProgramReflection(slang::ShaderReflection* pSlangReflector, std::string& log)
     {
         ParameterBlockReflection::SharedPtr pDefaultBlock = ParameterBlockReflection::create("");
@@ -620,6 +642,17 @@ namespace Falcor
         {
             pDefaultBlock->finalize();
             mpDefaultBlock = pDefaultBlock;
+
+            // Initialize the map from the default-block resources to the global resources
+            for (const auto& res : mpDefaultBlock->getResourceVec())
+            {
+                const auto& loc = mpDefaultBlock->getResourceBinding(res.name);
+                ResourceBinding bind;
+                bind.regIndex = res.regIndex;
+                bind.regSpace = res.regSpace;
+                bind.type = getBindTypeFromSetType(res.setType);
+                mResourceBindMap[bind] = loc;
+            }
         }
 
         // Reflect per-stage parameters
@@ -1180,9 +1213,9 @@ namespace Falcor
         return (it == mResourceBindings.end()) ? BindLocation() : it->second;
     }
 
-    ProgramReflection::ResourceBinding ProgramReflection::getResourceBinding(const std::string& name) const
+    const ReflectionVar::SharedConstPtr ProgramReflection::getResource(const std::string& name) const
     {
-        return (mpDefaultBlock == nullptr) ? ResourceBinding() : mpDefaultBlock->getResourceBinding(name);
+        return (mpDefaultBlock == nullptr) ? nullptr : mpDefaultBlock->getResource(name);
     }
 
     bool ReflectionArrayType::operator==(const ReflectionType& other) const

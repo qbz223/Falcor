@@ -105,14 +105,26 @@ namespace Falcor
         return mParameterBlocks[0].pBlock->getConstantBuffer(name);
     }
 
+    ConstantBuffer::SharedPtr ProgramVars::getConstantBuffer(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex) const
+    {
+        return mParameterBlocks[0].pBlock->getConstantBuffer(globalLoc, arrayIndex);
+    }
+
     ConstantBuffer::SharedPtr ProgramVars::getConstantBuffer(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex) const
     {
-        return mParameterBlocks[0].pBlock->getConstantBuffer({ regSpace, baseRegIndex }, arrayIndex);
+        const GlobalBlockLocation& globalLoc = mpReflector->translateRegisterIndicesToBindLocation(regSpace, baseRegIndex, ProgramReflection::BindType::Cbv);
+        return getConstantBuffer(globalLoc, arrayIndex);
+    }
+
+    bool ProgramVars::setConstantBuffer(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex, const ConstantBuffer::SharedPtr& pCB)
+    {
+        return mParameterBlocks[0].pBlock->setConstantBuffer(globalLoc, arrayIndex, pCB);
     }
 
     bool ProgramVars::setConstantBuffer(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex, const ConstantBuffer::SharedPtr& pCB)
     {
-        return mParameterBlocks[0].pBlock->setConstantBuffer({ regSpace, baseRegIndex }, arrayIndex, pCB);
+        const GlobalBlockLocation& globalLoc = mpReflector->translateRegisterIndicesToBindLocation(regSpace, baseRegIndex, ProgramReflection::BindType::Cbv);
+        return setConstantBuffer(globalLoc, arrayIndex, pCB);
     }
 
     bool ProgramVars::setConstantBuffer(const std::string& name, const ConstantBuffer::SharedPtr& pCB)
@@ -150,9 +162,15 @@ namespace Falcor
         return mParameterBlocks[0].pBlock->getStructuredBuffer(name);
     }
 
+    bool ProgramVars::setSampler(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex, const Sampler::SharedPtr& pSampler)
+    {
+        return mParameterBlocks[0].pBlock->setSampler(globalLoc, arrayIndex, pSampler);
+    }
+
     bool ProgramVars::setSampler(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex, const Sampler::SharedPtr& pSampler)
     {
-        return mParameterBlocks[0].pBlock->setSampler({ regSpace, baseRegIndex }, arrayIndex, pSampler);
+        const GlobalBlockLocation& globalLoc = mpReflector->translateRegisterIndicesToBindLocation(regSpace, baseRegIndex, ProgramReflection::BindType::Sampler);
+        return mParameterBlocks[0].pBlock->setSampler(globalLoc, arrayIndex, pSampler);
     }
 
     bool ProgramVars::setSampler(const std::string& name, const Sampler::SharedPtr& pSampler)
@@ -165,19 +183,37 @@ namespace Falcor
         return mParameterBlocks[0].pBlock->getSampler(name);
     }
 
+    Sampler::SharedPtr ProgramVars::getSampler(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex) const
+    {
+        return mParameterBlocks[0].pBlock->getSampler(globalLoc, arrayIndex);
+    }
+
     Sampler::SharedPtr ProgramVars::getSampler(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex) const
     {
-        return mParameterBlocks[0].pBlock->getSampler({ regSpace, baseRegIndex }, arrayIndex);
+        const GlobalBlockLocation& globalLoc = mpReflector->translateRegisterIndicesToBindLocation(regSpace, baseRegIndex, ProgramReflection::BindType::Sampler);
+        return mParameterBlocks[0].pBlock->getSampler(globalLoc, arrayIndex);
+    }
+
+    ShaderResourceView::SharedPtr ProgramVars::getSrv(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex) const
+    {
+        return mParameterBlocks[0].pBlock->getSrv(globalLoc, arrayIndex);
     }
 
     ShaderResourceView::SharedPtr ProgramVars::getSrv(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex) const
     {
-        return mParameterBlocks[0].pBlock->getSrv({ regSpace, baseRegIndex }, arrayIndex);
+        const GlobalBlockLocation& globalLoc = mpReflector->translateRegisterIndicesToBindLocation(regSpace, baseRegIndex, ProgramReflection::BindType::Srv);
+        return mParameterBlocks[0].pBlock->getSrv(globalLoc, arrayIndex);
+    }
+
+    UnorderedAccessView::SharedPtr ProgramVars::getUav(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex) const
+    {
+        return mParameterBlocks[0].pBlock->getUav(globalLoc, arrayIndex);
     }
 
     UnorderedAccessView::SharedPtr ProgramVars::getUav(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex) const
     {
-        return mParameterBlocks[0].pBlock->getUav({ regSpace, baseRegIndex }, arrayIndex);
+        const GlobalBlockLocation& globalLoc = mpReflector->translateRegisterIndicesToBindLocation(regSpace, baseRegIndex, ProgramReflection::BindType::Uav);
+        return mParameterBlocks[0].pBlock->getUav(globalLoc, arrayIndex);
     }
 
     bool ProgramVars::setTexture(const std::string& name, const Texture::SharedPtr& pTexture)
@@ -190,16 +226,27 @@ namespace Falcor
         return mParameterBlocks[0].pBlock->getTexture(name);
     }
 
+    bool ProgramVars::setSrv(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex, const ShaderResourceView::SharedPtr& pSrv)
+    {
+        return mParameterBlocks[0].pBlock->setSrv(globalLoc, arrayIndex, pSrv);
+    }
+
     bool ProgramVars::setSrv(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex, const ShaderResourceView::SharedPtr& pSrv)
     {
-        return mParameterBlocks[0].pBlock->setSrv({ regSpace, baseRegIndex }, arrayIndex, pSrv);
+        const GlobalBlockLocation& globalLoc = mpReflector->translateRegisterIndicesToBindLocation(regSpace, baseRegIndex, ProgramReflection::BindType::Srv);
+        return mParameterBlocks[0].pBlock->setSrv(globalLoc, arrayIndex, pSrv);
+    }
+
+    bool ProgramVars::setUav(const GlobalBlockLocation& globalLoc, uint32_t arrayIndex, const UnorderedAccessView::SharedPtr& pUav)
+    {
+        return mParameterBlocks[0].pBlock->setUav(globalLoc, arrayIndex, pUav);
     }
 
     bool ProgramVars::setUav(uint32_t regSpace, uint32_t baseRegIndex, uint32_t arrayIndex, const UnorderedAccessView::SharedPtr& pUav)
     {
-        return mParameterBlocks[0].pBlock->setUav({ regSpace, baseRegIndex }, arrayIndex, pUav);
+        const GlobalBlockLocation& globalLoc = mpReflector->translateRegisterIndicesToBindLocation(regSpace, baseRegIndex, ProgramReflection::BindType::Uav);
+        return mParameterBlocks[0].pBlock->setUav(globalLoc, arrayIndex, pUav);
     }
-
     template<bool forGraphics>
     bool applyProgramVarsCommon(const ProgramVars* pVars, CopyContext* pContext, bool bindRootSig)
     {

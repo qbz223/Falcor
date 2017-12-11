@@ -52,8 +52,8 @@ namespace Falcor
         size_t offsetVarOffset;
         size_t scaleVarOffset;
 
-        ProgramReflection::BindLocation texBindLoc;
-        ProgramReflection::BindLocation samplerBindLoc;
+        ProgramVars::GlobalBlockLocation texBindLoc;
+        ProgramVars::GlobalBlockLocation samplerBindLoc;
     };
 
     static BlitData gBlitData;
@@ -76,8 +76,8 @@ namespace Falcor
             gBlitData.pLinearSampler = Sampler::create(desc);
             desc.setFilterMode(Sampler::Filter::Point, Sampler::Filter::Point, Sampler::Filter::Point).setAddressingMode(Sampler::AddressMode::Clamp, Sampler::AddressMode::Clamp, Sampler::AddressMode::Clamp);
             gBlitData.pPointSampler = Sampler::create(desc);
-            gBlitData.texBindLoc = gBlitData.pPass->getProgram()->getActiveVersion()->getReflector()->getResourceBinding("gTex");
-            gBlitData.samplerBindLoc = gBlitData.pPass->getProgram()->getActiveVersion()->getReflector()->getResourceBinding("gSampler");
+            gBlitData.texBindLoc = gBlitData.pPass->getProgram()->getActiveVersion()->getReflector()->getDefaultParameterBlock()->getResourceBinding("gTex");
+            gBlitData.samplerBindLoc = gBlitData.pPass->getProgram()->getActiveVersion()->getReflector()->getDefaultParameterBlock()->getResourceBinding("gSampler");
         }
     }
 
