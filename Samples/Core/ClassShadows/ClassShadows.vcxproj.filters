@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="ClassShadows.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ClassShadows.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Data">
+      <UniqueIdentifier>{58ff7b73-bf8a-4912-aa2d-5ff103b9c142}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Data\SimpleShadow.ps.hlsl">
+      <Filter>Data</Filter>
+    </FxCompile>
+    <FxCompile Include="Data\SimpleShadow.vs.hlsl">
+      <Filter>Data</Filter>
+    </FxCompile>
+  </ItemGroup>
+</Project>
