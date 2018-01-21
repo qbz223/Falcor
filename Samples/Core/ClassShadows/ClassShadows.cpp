@@ -29,6 +29,7 @@
 
 void ClassShadows::onGuiRender()
 {
+  //Scene Loading
   if (mpGui->addButton("Load Scene"))
   {
     std::string filename;
@@ -38,23 +39,37 @@ void ClassShadows::onGuiRender()
       mpSceneRenderer = SceneRenderer::create(mpScene);
     }
   }
-  //if (mpGui->addButton("Load Model"))
-  //{
-  //  std::string filename;
-  //  if (openFileDialog(Model::kSupportedFileFormatsStr, filename))
-  //  {
-  //    auto model = Model::createFromFile(filename.c_str());
-  //    if (model)
-  //    {
-  //      mpScene->deleteAllModels();
-  //      mpScene->addModelInstance(model, "MainModel");
-  //    }
-  //  }
-  //}
+
+  mpGui->addSeparator();
+
+  if(mpSceneRenderer)
+  {
+    //Light Controls
+    if(mpGui->beginGroup("LightData", true))
+    {
+      mpScene->getLight(0)->renderUI(mpGui.get());
+      mpGui->endGroup();
+    }
+    mpGui->addSeparator();
+
+    //Debug drawing shadow map controls
+    if (mpGui->beginGroup("Debug Maps"))
+    {
+      mpGui->addCheckBox("Debug Draw Map", mDebugData.bShouldDebugDrawShadowMap);
+      if(mDebugData.bShouldDebugDrawShadowMap)
+      {
+        mpGui->addFloatVar("Left", mDebugData.position.x, 0, mpDefaultFBO->getWidth() - mDebugData.size.x);
+        mpGui->addFloatVar("Top", mDebugData.position.y, 0, mpDefaultFBO->getHeight() - mDebugData.size.y);
+        mpGui->addFloatVar("Width", mDebugData.size.x, 1, (float)mpDefaultFBO->getWidth());
+        mpGui->addFloatVar("Height", mDebugData.size.y, 1, (float)mpDefaultFBO->getHeight());
+      }
+    }
+  }
 }
 
 void ClassShadows::onLoad()
 {
+  //Main Pass
   mpScene = Scene::create();
   mpScene->addCamera(Camera::create());
   mpState = GraphicsState::create();
@@ -63,46 +78,77 @@ void ClassShadows::onLoad()
   mpState->setFbo(mpDefaultFBO);
   mpVars = GraphicsVars::create(prog->getActiveVersion()->getReflector());
 
-  //Stuff for heightmap pass
+  //Shadow Pass
+  //Texture
   mShadowPass.mpShadowMap = Texture::create2D(
     mpDefaultFBO->getWidth(),
     mpDefaultFBO->getHeight(),
     ResourceFormat::RGBA32Float,
     1u,
-    UINT32_MAX,
+    1u,
     nullptr,
     Resource::BindFlags::ShaderResource | Resource::BindFlags::RenderTarget);
+  //State
   mShadowPass.mpState = GraphicsState::create();
   auto passProg = GraphicsProgram::createFromFile("", "ShadowPass.ps.hlsl");
   mShadowPass.mpState->setProgram(passProg);
-  mShadowPass.mpVars = GraphicsVars::create(passProg->getActiveVersion()->getReflector());
   mShadowPass.mpFbo = Fbo::create();
   mShadowPass.mpFbo->attachColorTarget(mShadowPass.mpShadowMap, 0);
   mShadowPass.mpState->setFbo(mShadowPass.mpFbo);
+  //Vars
+  mShadowPass.mpVars = GraphicsVars::create(passProg->getActiveVersion()->getReflector());
 
+  //Initial UI data
+  mDebugData.position = vec2(mpDefaultFBO->getWidth() - 600, 0);
+  mDebugData.size = vec2(600, 600 * ((float)mpDefaultFBO->getHeight() / mpDefaultFBO->getWidth()));
 }
 
 void ClassShadows::runShadowPass()
 {
+  //Clear shadow map
+  mpRenderContext->clearFbo(mShadowPass.mpFbo.get(), vec4(0, 0, 0, 0), 0, 0);
+
+  //cache cam data
   auto cam = mpScene->getActiveCamera();
   auto prevCamData = cam->getData();
 
+  //set cam to perspective of light
   auto light = mpScene->getLight(0);
   auto lightData = light->getData();
-
   cam->setPosition(-5.f * lightData.worldDir);
   cam->setTarget(vec3(0, 0, 0));
+  cam->setUpVector(vec3(0, 1, 0));
 
+  //render
   mpRenderContext->pushGraphicsState(mShadowPass.mpState);
   mpRenderContext->pushGraphicsVars(mShadowPass.mpVars);
   mpSceneRenderer->renderScene(mpRenderContext.get());
   mpRenderContext->popGraphicsVars();
   mpRenderContext->popGraphicsState();
 
+  //Set PsPerFrameData while have light anyway
+  mPsPerFrame.lightDir = lightData.worldDir;
+  mPsPerFrame.lightViewProj = cam->getViewProjMatrix();
+  auto fboTex = mShadowPass.mpFbo->getColorTexture(0);
+  mPsPerFrame.shadowMapDim = vec2(fboTex->getWidth(), fboTex->getHeight());
+
+  //Restore previous camera state
   cam->setPosition(prevCamData.position);
   cam->setTarget(prevCamData.target);
+  cam->setUpVector(prevCamData.up);
 
-  mShadowPass.mpShadowMap = mShadowPass.mpFbo->getColorTexture(0);
+  //Save resulting shadow map
+  mShadowPass.mpShadowMap = fboTex;
+}
+
+void ClassShadows::debugDrawShadowMap()
+{
+  //Blit shadow map onto main pass fbo
+  vec4 srcRect(0, 0, mShadowPass.mpFbo->getWidth(), mShadowPass.mpFbo->getHeight());
+  vec4 dstRect(mDebugData.position.x, mDebugData.position.y, 
+              mDebugData.position.x + mDebugData.size.x, mDebugData.position.y + mDebugData.size.y);
+  mpRenderContext->blit(mShadowPass.mpShadowMap->getSRV(), mpDefaultFBO->getColorTexture(0)->getRTV(),
+    srcRect, dstRect);
 }
 
 void ClassShadows::onFrameRender()
@@ -115,6 +161,9 @@ void ClassShadows::onFrameRender()
 
     runShadowPass();
 
+    auto cb = mpVars->getConstantBuffer("PsPerFrame");
+    cb->setBlob(&mPsPerFrame, 0, sizeof(PsPerFrame));
+
     //y tho? (hacks around multiple swapchain error I still dont understand)
     mpState->setFbo(mpDefaultFBO);
 
@@ -123,6 +172,9 @@ void ClassShadows::onFrameRender()
     mpSceneRenderer->renderScene(mpRenderContext.get());
     mpRenderContext->popGraphicsVars();
     mpRenderContext->popGraphicsState();
+
+    if(mDebugData.bShouldDebugDrawShadowMap)
+      debugDrawShadowMap();
   }
 }
 
@@ -133,7 +185,6 @@ void ClassShadows::onShutdown()
 
 bool ClassShadows::onKeyEvent(const KeyboardEvent& keyEvent)
 {
-  ///mpSceneRenderer->setCameraControllerType
   if(mpSceneRenderer)
     return mpSceneRenderer->onKeyEvent(keyEvent);
   else

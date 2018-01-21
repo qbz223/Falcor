@@ -44,12 +44,22 @@ class ClassShadows : public Sample
 
   private:
     void runShadowPass();
+    void debugDrawShadowMap();
 
     Scene::SharedPtr mpScene;
     SceneRenderer::SharedPtr mpSceneRenderer;
     GraphicsState::SharedPtr mpState;
     GraphicsVars::SharedPtr mpVars;
+    
+    //Data for debug drawing shadow map
+    struct DebugMapData
+    {
+      bool bShouldDebugDrawShadowMap = false;
+      vec2 position;
+      vec2 size;
+    } mDebugData;
 
+    //Stuff for shadow pass
     struct ShadowPass
     {
       Texture::SharedPtr mpShadowMap;
@@ -58,10 +68,13 @@ class ClassShadows : public Sample
       GraphicsState::SharedPtr mpState;
     } mShadowPass;
 
-    struct VsPerFrame
+    //Main pass ps cbuffer
+    struct PsPerFrame
     {
-      mat4 world = glm::mat4();
-      mat4 viewProj = glm::mat4();
       mat4 lightViewProj = glm::mat4();
-    } mVsPerFrame;
+      vec3 lightDir;
+      float padding;
+      vec2 shadowMapDim;
+    } mPsPerFrame;
+
 };
