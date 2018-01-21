@@ -43,14 +43,25 @@ class ClassShadows : public Sample
     void onGuiRender() override;
 
   private:
+    void runShadowPass();
+
     Scene::SharedPtr mpScene;
     SceneRenderer::SharedPtr mpSceneRenderer;
     GraphicsState::SharedPtr mpState;
     GraphicsVars::SharedPtr mpVars;
 
+    struct ShadowPass
+    {
+      Texture::SharedPtr mpShadowMap;
+      Fbo::SharedPtr mpFbo;
+      GraphicsVars::SharedPtr mpVars;
+      GraphicsState::SharedPtr mpState;
+    } mShadowPass;
+
     struct VsPerFrame
     {
       mat4 world = glm::mat4();
       mat4 viewProj = glm::mat4();
+      mat4 lightViewProj = glm::mat4();
     } mVsPerFrame;
 };

@@ -10,6 +10,20 @@ struct VS_OUT
   float4 posH : SV_POSITION;
 };
 
+cbuffer PsPerFrame
+{
+  matrix lightViewProj;
+  int2 screenDim;
+}
+
+float2 getShadowUv(float3 posW)
+{
+  float4 lightSpacePosH = mul(float4(posW, 1.0f), lightViewProj);
+  float2 uv = lightSpacePosH.xy * float2(1.0f/screenDim.x, 1.0f/screenDim.y);
+  uv.y = 1 - uv.y;
+  return uv;
+}
+
 float4 main(VS_OUT vOut) : SV_TARGET
 {
   float nDotL = dot(vOut.normalW, float3(0.25f, 0.5f, 0.75f));

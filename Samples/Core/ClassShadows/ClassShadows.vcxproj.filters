@@ -18,5 +18,8 @@
     <FxCompile Include="Data\SimpleShadow.vs.hlsl">
       <Filter>Data</Filter>
     </FxCompile>
+    <FxCompile Include="Data\ShadowPass.ps.hlsl">
+      <Filter>Data</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

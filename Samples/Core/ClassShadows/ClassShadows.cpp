@@ -62,6 +62,47 @@ void ClassShadows::onLoad()
   mpState->setProgram(prog);
   mpState->setFbo(mpDefaultFBO);
   mpVars = GraphicsVars::create(prog->getActiveVersion()->getReflector());
+
+  //Stuff for heightmap pass
+  mShadowPass.mpShadowMap = Texture::create2D(
+    mpDefaultFBO->getWidth(),
+    mpDefaultFBO->getHeight(),
+    ResourceFormat::RGBA32Float,
+    1u,
+    UINT32_MAX,
+    nullptr,
+    Resource::BindFlags::ShaderResource | Resource::BindFlags::RenderTarget);
+  mShadowPass.mpState = GraphicsState::create();
+  auto passProg = GraphicsProgram::createFromFile("", "ShadowPass.ps.hlsl");
+  mShadowPass.mpState->setProgram(passProg);
+  mShadowPass.mpVars = GraphicsVars::create(passProg->getActiveVersion()->getReflector());
+  mShadowPass.mpFbo = Fbo::create();
+  mShadowPass.mpFbo->attachColorTarget(mShadowPass.mpShadowMap, 0);
+  mShadowPass.mpState->setFbo(mShadowPass.mpFbo);
+
+}
+
+void ClassShadows::runShadowPass()
+{
+  auto cam = mpScene->getActiveCamera();
+  auto prevCamData = cam->getData();
+
+  auto light = mpScene->getLight(0);
+  auto lightData = light->getData();
+
+  cam->setPosition(-5.f * lightData.worldDir);
+  cam->setTarget(vec3(0, 0, 0));
+
+  mpRenderContext->pushGraphicsState(mShadowPass.mpState);
+  mpRenderContext->pushGraphicsVars(mShadowPass.mpVars);
+  mpSceneRenderer->renderScene(mpRenderContext.get());
+  mpRenderContext->popGraphicsVars();
+  mpRenderContext->popGraphicsState();
+
+  cam->setPosition(prevCamData.position);
+  cam->setTarget(prevCamData.target);
+
+  mShadowPass.mpShadowMap = mShadowPass.mpFbo->getColorTexture(0);
 }
 
 void ClassShadows::onFrameRender()
@@ -70,14 +111,13 @@ void ClassShadows::onFrameRender()
  	mpRenderContext->clearFbo(mpDefaultFBO.get(), clearColor, 1.0f, 0, FboAttachmentType::All);
   if(mpSceneRenderer)
   {
-    //update cb
-    //mVsPerFrame.viewProj = mpScene->getActiveCamera()->getViewProjMatrix();
-    //auto cb = mpVars->getConstantBuffer("VsPerFrame");
-    //cb->setBlob(&mVsPerFrame, 0, sizeof(VsPerFrame));
-
     mpSceneRenderer->update(mCurrentTime);
+
+    runShadowPass();
+
     //y tho? (hacks around multiple swapchain error I still dont understand)
     mpState->setFbo(mpDefaultFBO);
+
     mpRenderContext->pushGraphicsState(mpState);
     mpRenderContext->pushGraphicsVars(mpVars);
     mpSceneRenderer->renderScene(mpRenderContext.get());
