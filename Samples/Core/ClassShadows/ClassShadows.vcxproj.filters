@@ -19,4 +19,9 @@
       <Filter>Data</Filter>
     </FxCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Data\ShadowVS.slang">
+      <Filter>Data</Filter>
+    </None>
+  </ItemGroup>
 </Project>

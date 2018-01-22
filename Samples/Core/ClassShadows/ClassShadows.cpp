@@ -73,7 +73,7 @@ void ClassShadows::onLoad()
   mpScene = Scene::create();
   mpScene->addCamera(Camera::create());
   mpState = GraphicsState::create();
-  auto prog = GraphicsProgram::createFromFile("", "SimpleShadow.ps.hlsl");
+  auto prog = GraphicsProgram::createFromFile("ShadowVS.slang", "SimpleShadow.ps.hlsl");
   mpState->setProgram(prog);
   mpState->setFbo(mpDefaultFBO);
   mpVars = GraphicsVars::create(prog->getActiveVersion()->getReflector());
@@ -88,15 +88,34 @@ void ClassShadows::onLoad()
     1u,
     nullptr,
     Resource::BindFlags::ShaderResource | Resource::BindFlags::RenderTarget);
+  auto shadowDepth = Texture::create2D(
+    mpDefaultFBO->getWidth(),
+    mpDefaultFBO->getHeight(),
+    ResourceFormat::D32Float,
+    1u,
+    1u,
+    nullptr,
+    Resource::BindFlags::ShaderResource | Resource::BindFlags::DepthStencil);
   //State
   mShadowPass.mpState = GraphicsState::create();
   auto passProg = GraphicsProgram::createFromFile("", "ShadowPass.ps.hlsl");
   mShadowPass.mpState->setProgram(passProg);
   mShadowPass.mpFbo = Fbo::create();
+  //mShadowPass.mpFbo->attachColorTarget(mpDefaultFBO->getColorTexture(0), 0);
+  //mShadowPass.mpFbo->attachColorTarget(nullptr, 0);
   mShadowPass.mpFbo->attachColorTarget(mShadowPass.mpShadowMap, 0);
+  mShadowPass.mpFbo->attachDepthStencilTarget(shadowDepth);
   mShadowPass.mpState->setFbo(mShadowPass.mpFbo);
+
+  DepthStencilState::Desc depthDesc;
+  depthDesc.setDepthTest(true);
+  depthDesc.setDepthFunc(DepthStencilState::Func::LessEqual);
+  mShadowPass.mpState->setDepthStencilState(DepthStencilState::create(depthDesc));
   //Vars
+  Sampler::Desc cmpDesc;
+  cmpDesc.setComparisonMode(Sampler::ComparisonMode::LessEqual);
   mShadowPass.mpVars = GraphicsVars::create(passProg->getActiveVersion()->getReflector());
+  mShadowPass.mpVars->setSampler("gSampler", Sampler::create(cmpDesc));
 
   //Initial UI data
   mDebugData.position = vec2(mpDefaultFBO->getWidth() - 600, 0);
@@ -106,7 +125,7 @@ void ClassShadows::onLoad()
 void ClassShadows::runShadowPass()
 {
   //Clear shadow map
-  mpRenderContext->clearFbo(mShadowPass.mpFbo.get(), vec4(0, 0, 0, 0), 0, 0);
+  mpRenderContext->clearFbo(mShadowPass.mpFbo.get(), vec4(99999.f, 0, 0, 0), 1.f, 0);
 
   //cache cam data
   auto cam = mpScene->getActiveCamera();
@@ -115,9 +134,11 @@ void ClassShadows::runShadowPass()
   //set cam to perspective of light
   auto light = mpScene->getLight(0);
   auto lightData = light->getData();
-  cam->setPosition(-5.f * lightData.worldDir);
+  auto effectiveLightPos = -2.f * lightData.worldDir;
+  cam->setPosition(effectiveLightPos);
   cam->setTarget(vec3(0, 0, 0));
   cam->setUpVector(vec3(0, 1, 0));
+  cam->setDepthRange(0.01f, 99999999999.f);
 
   //render
   mpRenderContext->pushGraphicsState(mShadowPass.mpState);
@@ -126,10 +147,13 @@ void ClassShadows::runShadowPass()
   mpRenderContext->popGraphicsVars();
   mpRenderContext->popGraphicsState();
 
+  mLightViewProj = glm::mat4(cam->getViewProjMatrix());
   //Set PsPerFrameData while have light anyway
   mPsPerFrame.lightDir = lightData.worldDir;
-  mPsPerFrame.lightViewProj = cam->getViewProjMatrix();
+  mPsPerFrame.lightPos = effectiveLightPos;
+  //mPsPerFrame.lightViewProj = cam->getViewProjMatrix();
   auto fboTex = mShadowPass.mpFbo->getColorTexture(0);
+  //auto fboTex = mShadowPass.mpFbo->getDepthStencilTexture();
   mPsPerFrame.shadowMapDim = vec2(fboTex->getWidth(), fboTex->getHeight());
 
   //Restore previous camera state
@@ -161,8 +185,12 @@ void ClassShadows::onFrameRender()
 
     runShadowPass();
 
-    auto cb = mpVars->getConstantBuffer("PsPerFrame");
-    cb->setBlob(&mPsPerFrame, 0, sizeof(PsPerFrame));
+    auto vsCb = mpVars->getConstantBuffer("LightMatrixBuffer");
+    vsCb->setBlob(&mLightViewProj, 0, sizeof(mat4));
+
+    auto psCb = mpVars->getConstantBuffer("PsPerFrame");
+    psCb->setBlob(&mPsPerFrame, 0, sizeof(PsPerFrame));
+    mpVars->setSrv(0, 0, 0, mShadowPass.mpShadowMap->getSRV());
 
     //y tho? (hacks around multiple swapchain error I still dont understand)
     mpState->setFbo(mpDefaultFBO);

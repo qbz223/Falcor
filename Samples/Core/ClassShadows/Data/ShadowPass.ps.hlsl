@@ -10,7 +10,15 @@ struct VS_OUT
   float4 posH : SV_POSITION;
 };
 
-float4 main(VS_OUT vOut) : SV_TARGET
+cbuffer PsPerFrame
 {
-  return float4(vOut.posH.w, vOut.posH.w, vOut.posH.w, 1.0f);
+  float3 lightPos;  
+}
+
+float4 main(VS_OUT vOut) : SV_TARGET
+{ 
+  //i dont understand why i need to 
+  float depth = length(vOut.posW - lightPos);
+  return float4(depth.xxx, 1.0f);
+  //return float4(vOut.posH.zzz, 1.0f);
 }
