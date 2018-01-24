@@ -66,6 +66,7 @@ class ClassShadows : public Sample
       Fbo::SharedPtr mpFbo;
       GraphicsVars::SharedPtr mpVars;
       GraphicsState::SharedPtr mpState;
+      float dirLightDistance = 2.f;
     } mShadowPass;
 
     mat4 mLightViewProj = glm::mat4();

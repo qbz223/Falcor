@@ -111,6 +111,7 @@ VS_OUT main(VS_IN vIn)
     vOut.posW = posW.xyz;
     vOut.posH = mul(posW, gCam.viewProjMat);
     vOut.lightPosH = mul(posW, lightViewProj);
+    vOut.lightPosH.xy = (vOut.lightPosH.xy + 1) * 0.5f;
     //vOut.lightPosH /= vOut.lightPosH.w;
 
 #ifdef HAS_TEXCRD

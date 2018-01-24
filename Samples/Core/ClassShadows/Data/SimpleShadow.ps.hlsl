@@ -28,15 +28,19 @@ Texture2D gShadowMap;
 //float getShadowFactor(float4 lightPosH)
 float getShadowFactor(float4 lightPosH, float3 worldPos)
 {
-  float depth = length(worldPos - lightPos);
+  //float depth = length(worldPos - lightPos);
+  float depth = lightPosH.w;
   //float4 lightSpacePosH = mul(lightViewProj, float4(posW, 1.0f));
   //float2 uv = (lightPosH.xy * 0.5) + 0.5f; //* float2(1.0f/ shadowMapDim.x, 1.0f/shadowMapDim.y);
   //lightPosH /= lightPosH.w;
-  float2 uv = saturate((lightPosH.xy + 1) * 0.5f);
+  //float2 uv = (lightPosH.xy + 1) * 0.5f;
   //float2 uv = lightSpacePosH.xy * float2(1.f/1920, 0);
+  float2 uv = lightPosH.xy;
   uv.y = 1 - uv.y;
-  //float shadowDepth = gShadowMap.SampleCmpLevelZero(gSampler, uv, lightPosH.z);
+  //uv /= lightPosH.w;
+  //float shadowDepth = gShadowMap.SampleCmpLevelZero(gSampler, uv, lightPos.z);
   float shadowDepth = gShadowMap.Sample(gTestSampler, uv).x;
+  //return shadowDepth;
   //return (shadowDepth);
   //return(lightPosH.z);
 
@@ -46,7 +50,7 @@ float getShadowFactor(float4 lightPosH, float3 worldPos)
   //Why this ridiculous bias? Seems like a bandaid on wrong
   //dont know why i need to calc worldspace distance?? 
   //Not sure why i cant (Correct) matrix version to work atm (just storing .z in light space)
-  if(depth >= shadowDepth + 1.75f)
+  if(depth >= shadowDepth + 0.01f)
     return 0.25f;
   else
     return 1.0f;

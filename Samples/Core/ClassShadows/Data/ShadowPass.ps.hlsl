@@ -19,6 +19,6 @@ float4 main(VS_OUT vOut) : SV_TARGET
 { 
   //i dont understand why i need to 
   float depth = length(vOut.posW - lightPos);
-  return float4(depth.xxx, 1.0f);
-  //return float4(vOut.posH.zzz, 1.0f);
+  //return float4(depth.xxx, 1.0f);
+  return float4(vOut.posH.www, 1.0f);
 }

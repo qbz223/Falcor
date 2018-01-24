@@ -47,6 +47,7 @@ void ClassShadows::onGuiRender()
     //Light Controls
     if(mpGui->beginGroup("LightData", true))
     {
+      mpGui->addFloatVar("Dir Light distance", mShadowPass.dirLightDistance);
       mpScene->getLight(0)->renderUI(mpGui.get());
       mpGui->endGroup();
     }
@@ -76,7 +77,17 @@ void ClassShadows::onLoad()
   auto prog = GraphicsProgram::createFromFile("ShadowVS.slang", "SimpleShadow.ps.hlsl");
   mpState->setProgram(prog);
   mpState->setFbo(mpDefaultFBO);
+  Sampler::Desc samplerDesc;
+  Sampler::Desc cmpDesc;
+  cmpDesc.setComparisonMode(Sampler::ComparisonMode::LessEqual);
+  samplerDesc.setFilterMode(Sampler::Filter::Linear, Sampler::Filter::Linear, Sampler::Filter::Linear);
+  samplerDesc.setAddressingMode(Sampler::AddressMode::Border, Sampler::AddressMode::Border, Sampler::AddressMode::Border);
+  cmpDesc.setAddressingMode(Sampler::AddressMode::Border, Sampler::AddressMode::Border, Sampler::AddressMode::Border);
+  cmpDesc.setBorderColor(float4(99999, 0, 0, 1));
+  samplerDesc.setBorderColor(float4(99999, 0, 0, 1));
   mpVars = GraphicsVars::create(prog->getActiveVersion()->getReflector());
+  mpVars->setSampler("gTestSampler", Sampler::create(samplerDesc));
+  mpVars->setSampler("gSampler", Sampler::create(cmpDesc));
 
   //Shadow Pass
   //Texture
@@ -112,10 +123,7 @@ void ClassShadows::onLoad()
   depthDesc.setDepthFunc(DepthStencilState::Func::LessEqual);
   mShadowPass.mpState->setDepthStencilState(DepthStencilState::create(depthDesc));
   //Vars
-  Sampler::Desc cmpDesc;
-  cmpDesc.setComparisonMode(Sampler::ComparisonMode::LessEqual);
   mShadowPass.mpVars = GraphicsVars::create(passProg->getActiveVersion()->getReflector());
-  mShadowPass.mpVars->setSampler("gSampler", Sampler::create(cmpDesc));
 
   //Initial UI data
   mDebugData.position = vec2(mpDefaultFBO->getWidth() - 600, 0);
@@ -134,11 +142,11 @@ void ClassShadows::runShadowPass()
   //set cam to perspective of light
   auto light = mpScene->getLight(0);
   auto lightData = light->getData();
-  auto effectiveLightPos = -2.f * lightData.worldDir;
+  auto effectiveLightPos = -mShadowPass.dirLightDistance * lightData.worldDir;
   cam->setPosition(effectiveLightPos);
   cam->setTarget(vec3(0, 0, 0));
   cam->setUpVector(vec3(0, 1, 0));
-  cam->setDepthRange(0.01f, 99999999999.f);
+  //cam->setDepthRange(0.01f, 99999999999.f);
 
   //render
   mpRenderContext->pushGraphicsState(mShadowPass.mpState);
