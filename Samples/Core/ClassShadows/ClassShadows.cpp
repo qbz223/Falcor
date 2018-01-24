@@ -72,22 +72,19 @@ void ClassShadows::onLoad()
 {
   //Main Pass
   mpScene = Scene::create();
-  mpScene->addCamera(Camera::create());
+  auto cam = Camera::create();
+  cam->setDepthRange(0.01f, 100.f);
+  mpScene->addCamera(cam);
   mpState = GraphicsState::create();
   auto prog = GraphicsProgram::createFromFile("ShadowVS.slang", "SimpleShadow.ps.hlsl");
   mpState->setProgram(prog);
   mpState->setFbo(mpDefaultFBO);
   Sampler::Desc samplerDesc;
-  Sampler::Desc cmpDesc;
-  cmpDesc.setComparisonMode(Sampler::ComparisonMode::LessEqual);
   samplerDesc.setFilterMode(Sampler::Filter::Linear, Sampler::Filter::Linear, Sampler::Filter::Linear);
   samplerDesc.setAddressingMode(Sampler::AddressMode::Border, Sampler::AddressMode::Border, Sampler::AddressMode::Border);
-  cmpDesc.setAddressingMode(Sampler::AddressMode::Border, Sampler::AddressMode::Border, Sampler::AddressMode::Border);
-  cmpDesc.setBorderColor(float4(99999, 0, 0, 1));
   samplerDesc.setBorderColor(float4(99999, 0, 0, 1));
   mpVars = GraphicsVars::create(prog->getActiveVersion()->getReflector());
   mpVars->setSampler("gTestSampler", Sampler::create(samplerDesc));
-  mpVars->setSampler("gSampler", Sampler::create(cmpDesc));
 
   //Shadow Pass
   //Texture
@@ -112,16 +109,10 @@ void ClassShadows::onLoad()
   auto passProg = GraphicsProgram::createFromFile("", "ShadowPass.ps.hlsl");
   mShadowPass.mpState->setProgram(passProg);
   mShadowPass.mpFbo = Fbo::create();
-  //mShadowPass.mpFbo->attachColorTarget(mpDefaultFBO->getColorTexture(0), 0);
-  //mShadowPass.mpFbo->attachColorTarget(nullptr, 0);
   mShadowPass.mpFbo->attachColorTarget(mShadowPass.mpShadowMap, 0);
   mShadowPass.mpFbo->attachDepthStencilTarget(shadowDepth);
   mShadowPass.mpState->setFbo(mShadowPass.mpFbo);
 
-  DepthStencilState::Desc depthDesc;
-  depthDesc.setDepthTest(true);
-  depthDesc.setDepthFunc(DepthStencilState::Func::LessEqual);
-  mShadowPass.mpState->setDepthStencilState(DepthStencilState::create(depthDesc));
   //Vars
   mShadowPass.mpVars = GraphicsVars::create(passProg->getActiveVersion()->getReflector());
 
@@ -146,7 +137,6 @@ void ClassShadows::runShadowPass()
   cam->setPosition(effectiveLightPos);
   cam->setTarget(vec3(0, 0, 0));
   cam->setUpVector(vec3(0, 1, 0));
-  //cam->setDepthRange(0.01f, 99999999999.f);
 
   //render
   mpRenderContext->pushGraphicsState(mShadowPass.mpState);
@@ -158,11 +148,8 @@ void ClassShadows::runShadowPass()
   mLightViewProj = glm::mat4(cam->getViewProjMatrix());
   //Set PsPerFrameData while have light anyway
   mPsPerFrame.lightDir = lightData.worldDir;
-  mPsPerFrame.lightPos = effectiveLightPos;
-  //mPsPerFrame.lightViewProj = cam->getViewProjMatrix();
   auto fboTex = mShadowPass.mpFbo->getColorTexture(0);
   //auto fboTex = mShadowPass.mpFbo->getDepthStencilTexture();
-  mPsPerFrame.shadowMapDim = vec2(fboTex->getWidth(), fboTex->getHeight());
 
   //Restore previous camera state
   cam->setPosition(prevCamData.position);

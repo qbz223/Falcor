@@ -74,12 +74,7 @@ class ClassShadows : public Sample
     //Main pass ps cbuffer
     struct PsPerFrame
     {
-      //glm::mat4 lightViewProj;
       vec3 lightDir;
-      float padding;
-      vec3 lightPos;
-      float padding2;
-      vec2 shadowMapDim;
     } mPsPerFrame;
 
 };
