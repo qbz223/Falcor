@@ -74,6 +74,7 @@ void ClassShadows::onGuiRender()
       mpGui->addCheckBox("Debug Draw Map", mDebugData.bShouldDebugDrawShadowMap);
       if(mDebugData.bShouldDebugDrawShadowMap)
       {
+        mpGui->addFloatVar("Debug Coef", mDebugData.debugCoef, 0.0001f);
         mpGui->addFloatVar("Left", mDebugData.position.x, 0, mpDefaultFBO->getWidth() - mDebugData.size.x);
         mpGui->addFloatVar("Top", mDebugData.position.y, 0, mpDefaultFBO->getHeight() - mDebugData.size.y);
         mpGui->addFloatVar("Width", mDebugData.size.x, 1, (float)mpDefaultFBO->getWidth());
@@ -111,6 +112,15 @@ void ClassShadows::onLoad()
     1u,
     nullptr,
     Resource::BindFlags::ShaderResource | Resource::BindFlags::RenderTarget);
+  //debug texture 
+  mShadowPass.mpDebugShadowMap = Texture::create2D(
+    mpDefaultFBO->getWidth(),
+    mpDefaultFBO->getHeight(),
+    ResourceFormat::RGBA32Float,
+    1u,
+    1u,
+    nullptr,
+    Resource::BindFlags::ShaderResource | Resource::BindFlags::RenderTarget);
   auto shadowDepth = Texture::create2D(
     mpDefaultFBO->getWidth(),
     mpDefaultFBO->getHeight(),
@@ -125,6 +135,7 @@ void ClassShadows::onLoad()
   mShadowPass.mpState->setProgram(passProg);
   mShadowPass.mpFbo = Fbo::create();
   mShadowPass.mpFbo->attachColorTarget(mShadowPass.mpShadowMap, 0);
+  mShadowPass.mpFbo->attachColorTarget(mShadowPass.mpDebugShadowMap, 1);
   mShadowPass.mpFbo->attachDepthStencilTarget(shadowDepth);
   mShadowPass.mpState->setFbo(mShadowPass.mpFbo);
 
@@ -159,6 +170,10 @@ void ClassShadows::runShadowPass()
   cam->setTarget(vec3(0, 0, 0));
   cam->setUpVector(vec3(0, 1, 0));
 
+  //Update debug factor
+  auto cb = mShadowPass.mpVars->getConstantBuffer("PsPerFrame");
+  cb->setBlob(&mDebugData.debugCoef, 0, sizeof(float));
+
   //render
   mpRenderContext->pushGraphicsState(mShadowPass.mpState);
   mpRenderContext->pushGraphicsVars(mShadowPass.mpVars);
@@ -177,8 +192,9 @@ void ClassShadows::runShadowPass()
   cam->setTarget(prevCamData.target);
   cam->setUpVector(prevCamData.up);
 
-  //Save resulting shadow map
+  //Save resulting shadow maps
   mShadowPass.mpShadowMap = fboTex;
+  mShadowPass.mpDebugShadowMap = mShadowPass.mpFbo->getColorTexture(1);
 }
 
 void ClassShadows::debugDrawShadowMap()
@@ -187,7 +203,7 @@ void ClassShadows::debugDrawShadowMap()
   vec4 srcRect(0, 0, mShadowPass.mpFbo->getWidth(), mShadowPass.mpFbo->getHeight());
   vec4 dstRect(mDebugData.position.x, mDebugData.position.y, 
               mDebugData.position.x + mDebugData.size.x, mDebugData.position.y + mDebugData.size.y);
-  mpRenderContext->blit(mShadowPass.mpShadowMap->getSRV(), mpDefaultFBO->getColorTexture(0)->getRTV(),
+  mpRenderContext->blit(mShadowPass.mpDebugShadowMap->getSRV(), mpDefaultFBO->getColorTexture(0)->getRTV(),
     srcRect, dstRect);
 }
 

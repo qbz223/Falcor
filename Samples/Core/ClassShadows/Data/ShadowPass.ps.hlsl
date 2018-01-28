@@ -10,7 +10,21 @@ struct VS_OUT
   float4 posH : SV_POSITION;
 };
 
-float4 main(VS_OUT vOut) : SV_TARGET
+struct PS_OUT
+{
+  float4 mainColor : SV_TARGET0;
+  float4 debugColor : SV_TARGET1;
+};
+
+cbuffer PsPerFrame
+{
+  float debugCoef;
+};
+
+PS_OUT main(VS_OUT vOut) : SV_TARGET
 { 
-  return float4(vOut.posH.www, 1.0f);
+  PS_OUT pOut;
+  pOut.mainColor = float4(vOut.posH.www, 1.0f);
+  pOut.debugColor = float4(vOut.posH.www / debugCoef, 1.0f);
+  return pOut;
 }

@@ -57,12 +57,14 @@ class ClassShadows : public Sample
       bool bShouldDebugDrawShadowMap = false;
       vec2 position;
       vec2 size;
+      float debugCoef = 10.f; //divide the depth by this to make it more easily viewable 
     } mDebugData;
 
     //Stuff for shadow pass
     struct ShadowPass
     {
       Texture::SharedPtr mpShadowMap;
+      Texture::SharedPtr mpDebugShadowMap;
       Fbo::SharedPtr mpFbo;
       GraphicsVars::SharedPtr mpVars;
       GraphicsState::SharedPtr mpState;
