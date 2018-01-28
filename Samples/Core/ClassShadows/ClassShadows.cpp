@@ -27,6 +27,13 @@
 ***************************************************************************/
 #include "ClassShadows.h"
 
+Gui::DropdownList ClassShadows::kShadowModes =
+{
+  { Basic, "Basic" },
+  { Variance, "Variance" },
+  { Moment, "Moment" },
+};
+
 void ClassShadows::onGuiRender()
 {
   //Scene Loading
@@ -55,6 +62,28 @@ void ClassShadows::onGuiRender()
 
     if(mpGui->beginGroup("Shadows"))
     {
+      //Current Shadow mode
+      if(mpGui->addDropdown("Mode", kShadowModes, mShadowMode))
+      {
+        //Update shader defines to reflect changed mode
+        auto& prog = mpState->getProgram();
+        auto& passProg = mShadowPass.mpState->getProgram();
+        prog->clearDefines();
+        passProg->clearDefines();
+
+        if(mShadowMode == Variance)
+        {
+          prog->addDefine("VARIANCE");
+          passProg->addDefine("VARIANCE");
+        }
+        else if(mShadowMode == Moment)
+        {
+          prog->addDefine("MOMENT");
+          passProg->addDefine("MOMENT");
+        }
+      }
+
+      //culling
       if(mpGui->addCheckBox("Front face culling", mbFrontFaceCulling))
       {
         if(mbFrontFaceCulling)
@@ -181,8 +210,8 @@ void ClassShadows::runShadowPass()
   mpRenderContext->popGraphicsVars();
   mpRenderContext->popGraphicsState();
 
-  mLightViewProj = glm::mat4(cam->getViewProjMatrix());
   //Set PsPerFrameData while have light anyway
+  mLightViewProj = glm::mat4(cam->getViewProjMatrix());
   mPsPerFrame.lightDir = lightData.worldDir;
   auto fboTex = mShadowPass.mpFbo->getColorTexture(0);
   //auto fboTex = mShadowPass.mpFbo->getDepthStencilTexture();
@@ -191,6 +220,11 @@ void ClassShadows::runShadowPass()
   cam->setPosition(prevCamData.position);
   cam->setTarget(prevCamData.target);
   cam->setUpVector(prevCamData.up);
+
+  if(mShadowMode == Variance)
+  {
+    //Do blur here
+  }
 
   //Save resulting shadow maps
   mShadowPass.mpShadowMap = fboTex;

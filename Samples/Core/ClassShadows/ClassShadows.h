@@ -83,4 +83,8 @@ class ClassShadows : public Sample
     bool mbFrontFaceCulling = false;
     RasterizerState::SharedPtr mpBackFaceCull;
     RasterizerState::SharedPtr mpFrontFaceCull;
+
+    typedef uint32_t ShadowMode; enum {Basic = 0, Variance = 1, Moment = 2};
+    ShadowMode mShadowMode = Basic;
+    static Gui::DropdownList kShadowModes;
 };
