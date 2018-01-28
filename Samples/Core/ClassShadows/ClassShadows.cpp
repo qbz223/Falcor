@@ -45,10 +45,25 @@ void ClassShadows::onGuiRender()
   if(mpSceneRenderer)
   {
     //Light Controls
-    if(mpGui->beginGroup("LightData", true))
+    if(mpGui->beginGroup("LightData"))
     {
       mpGui->addFloatVar("Dir Light distance", mShadowPass.dirLightDistance);
       mpScene->getLight(0)->renderUI(mpGui.get());
+      mpGui->endGroup();
+    }
+    mpGui->addSeparator();
+
+    if(mpGui->beginGroup("Shadows"))
+    {
+      if(mpGui->addCheckBox("Front face culling", mbFrontFaceCulling))
+      {
+        if(mbFrontFaceCulling)
+          mShadowPass.mpState->setRasterizerState(mpFrontFaceCull);
+        else
+          mShadowPass.mpState->setRasterizerState(mpBackFaceCull);
+      }
+
+      mpGui->addFloatVar("Depth Bias", mPsPerFrame.depthBias, 0);
       mpGui->endGroup();
     }
     mpGui->addSeparator();
@@ -115,6 +130,12 @@ void ClassShadows::onLoad()
 
   //Vars
   mShadowPass.mpVars = GraphicsVars::create(passProg->getActiveVersion()->getReflector());
+
+  //Rs state
+  auto rsDesc = RasterizerState::Desc();
+  mpBackFaceCull = RasterizerState::create(rsDesc);
+  rsDesc.setCullMode(RasterizerState::CullMode::Front);
+  mpFrontFaceCull = RasterizerState::create(rsDesc);
 
   //Initial UI data
   mDebugData.position = vec2(mpDefaultFBO->getWidth() - 600, 0);

@@ -14,6 +14,7 @@ struct VS_OUT
 cbuffer PsPerFrame
 {
   float3 lightDir;
+  float depthBias;
 }
 
 SamplerComparisonState gSampler;
@@ -27,7 +28,7 @@ float getShadowFactor(float4 lightPosH, float3 worldPos)
   uv.y = 1 - uv.y;
   float shadowDepth = gShadowMap.Sample(gTestSampler, uv).x;
 
-  if(depth >= shadowDepth + 0.19f)
+  if(depth >= shadowDepth + depthBias)
     return 0.25f;
   else
     return 1.0f;

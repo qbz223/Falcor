@@ -75,6 +75,10 @@ class ClassShadows : public Sample
     struct PsPerFrame
     {
       vec3 lightDir;
+      float depthBias = 0.19f;
     } mPsPerFrame;
 
+    bool mbFrontFaceCulling = false;
+    RasterizerState::SharedPtr mpBackFaceCull;
+    RasterizerState::SharedPtr mpFrontFaceCull;
 };
