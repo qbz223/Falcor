@@ -127,7 +127,7 @@ void ClassShadows::onLoad()
   Sampler::Desc samplerDesc;
   samplerDesc.setFilterMode(Sampler::Filter::Linear, Sampler::Filter::Linear, Sampler::Filter::Linear);
   samplerDesc.setAddressingMode(Sampler::AddressMode::Border, Sampler::AddressMode::Border, Sampler::AddressMode::Border);
-  samplerDesc.setBorderColor(float4(99999, 0, 0, 1));
+  samplerDesc.setBorderColor(float4(99999.f , 0, 0, 0.0f));
   mpVars = GraphicsVars::create(prog->getActiveVersion()->getReflector());
   mpVars->setSampler("gTestSampler", Sampler::create(samplerDesc));
 
@@ -163,8 +163,10 @@ void ClassShadows::onLoad()
   auto passProg = GraphicsProgram::createFromFile("", "ShadowPass.ps.hlsl");
   mShadowPass.mpState->setProgram(passProg);
   mShadowPass.mpFbo = Fbo::create();
+  mShadowPass.mpDebugFbo = Fbo::create();
   mShadowPass.mpFbo->attachColorTarget(mShadowPass.mpShadowMap, 0);
   mShadowPass.mpFbo->attachColorTarget(mShadowPass.mpDebugShadowMap, 1);
+  mShadowPass.mpDebugFbo->attachColorTarget(mShadowPass.mpDebugShadowMap, 0);
   mShadowPass.mpFbo->attachDepthStencilTarget(shadowDepth);
   mShadowPass.mpState->setFbo(mShadowPass.mpFbo);
 
@@ -177,6 +179,9 @@ void ClassShadows::onLoad()
   rsDesc.setCullMode(RasterizerState::CullMode::Front);
   mpFrontFaceCull = RasterizerState::create(rsDesc);
 
+  //Blur
+  mpBlur = GaussianBlur::create(15);
+
   //Initial UI data
   mDebugData.position = vec2(mpDefaultFBO->getWidth() - 600, 0);
   mDebugData.size = vec2(600, 600 * ((float)mpDefaultFBO->getHeight() / mpDefaultFBO->getWidth()));
@@ -185,7 +190,7 @@ void ClassShadows::onLoad()
 void ClassShadows::runShadowPass()
 {
   //Clear shadow map
-  mpRenderContext->clearFbo(mShadowPass.mpFbo.get(), vec4(99999.f, 0, 0, 0), 1.f, 0);
+  mpRenderContext->clearFbo(mShadowPass.mpFbo.get(), vec4(0.f, 0, 0, 0), 1.f, 0);
 
   //cache cam data
   auto cam = mpScene->getActiveCamera();
@@ -210,25 +215,33 @@ void ClassShadows::runShadowPass()
   mpRenderContext->popGraphicsVars();
   mpRenderContext->popGraphicsState();
 
+  Texture::SharedPtr shadowMap = nullptr;
+  if(mShadowMode == Basic)
+  {
+    mShadowPass.mpShadowMap = mShadowPass.mpFbo->getColorTexture(0);
+    mShadowPass.mpDebugShadowMap = mShadowPass.mpFbo->getColorTexture(1);
+  }
+  if (mShadowMode == Variance)
+  {
+    //Blur
+    mpBlur->execute(mpRenderContext.get(), mShadowPass.mpFbo->getColorTexture(0), mShadowPass.mpFbo);
+    mShadowPass.mpShadowMap = mShadowPass.mpFbo->getColorTexture(0);
+    //Also blur debug map if debugging
+    if(mDebugData.bShouldDebugDrawShadowMap)
+    {
+      mpBlur->execute(mpRenderContext.get(), mShadowPass.mpFbo->getColorTexture(1), mShadowPass.mpDebugFbo);
+      mShadowPass.mpDebugShadowMap = mShadowPass.mpDebugFbo->getColorTexture(0);
+    } 
+  }
+
   //Set PsPerFrameData while have light anyway
   mLightViewProj = glm::mat4(cam->getViewProjMatrix());
   mPsPerFrame.lightDir = lightData.worldDir;
-  auto fboTex = mShadowPass.mpFbo->getColorTexture(0);
-  //auto fboTex = mShadowPass.mpFbo->getDepthStencilTexture();
 
   //Restore previous camera state
   cam->setPosition(prevCamData.position);
   cam->setTarget(prevCamData.target);
   cam->setUpVector(prevCamData.up);
-
-  if(mShadowMode == Variance)
-  {
-    //Do blur here
-  }
-
-  //Save resulting shadow maps
-  mShadowPass.mpShadowMap = fboTex;
-  mShadowPass.mpDebugShadowMap = mShadowPass.mpFbo->getColorTexture(1);
 }
 
 void ClassShadows::debugDrawShadowMap()

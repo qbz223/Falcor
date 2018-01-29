@@ -66,6 +66,8 @@ class ClassShadows : public Sample
       Texture::SharedPtr mpShadowMap;
       Texture::SharedPtr mpDebugShadowMap;
       Fbo::SharedPtr mpFbo;
+      //Fbo for blur results
+      Fbo::SharedPtr mpDebugFbo;
       GraphicsVars::SharedPtr mpVars;
       GraphicsState::SharedPtr mpState;
       float dirLightDistance = 2.f;
@@ -83,6 +85,7 @@ class ClassShadows : public Sample
     bool mbFrontFaceCulling = false;
     RasterizerState::SharedPtr mpBackFaceCull;
     RasterizerState::SharedPtr mpFrontFaceCull;
+    GaussianBlur::UniquePtr mpBlur;
 
     typedef uint32_t ShadowMode; enum {Basic = 0, Variance = 1, Moment = 2};
     ShadowMode mShadowMode = Basic;
