@@ -127,13 +127,21 @@ void ClassShadows::onLoad()
   Sampler::Desc samplerDesc;
   samplerDesc.setFilterMode(Sampler::Filter::Linear, Sampler::Filter::Linear, Sampler::Filter::Linear);
   samplerDesc.setAddressingMode(Sampler::AddressMode::Border, Sampler::AddressMode::Border, Sampler::AddressMode::Border);
-  samplerDesc.setBorderColor(float4(99999.f , 0, 0, 0.0f));
+  samplerDesc.setBorderColor(float4(9999.f , 0.f, 0.f, 0.0f));
   mpVars = GraphicsVars::create(prog->getActiveVersion()->getReflector());
   mpVars->setSampler("gTestSampler", Sampler::create(samplerDesc));
 
   //Shadow Pass
   //Texture
   mShadowPass.mpShadowMap = Texture::create2D(
+    mpDefaultFBO->getWidth(),
+    mpDefaultFBO->getHeight(),
+    ResourceFormat::RGBA32Float,
+    1u,
+    1u,
+    nullptr,
+    Resource::BindFlags::ShaderResource | Resource::BindFlags::RenderTarget);
+  mShadowPass.mpBlurTex = Texture::create2D(
     mpDefaultFBO->getWidth(),
     mpDefaultFBO->getHeight(),
     ResourceFormat::RGBA32Float,
@@ -150,6 +158,14 @@ void ClassShadows::onLoad()
     1u,
     nullptr,
     Resource::BindFlags::ShaderResource | Resource::BindFlags::RenderTarget);
+  mShadowPass.mpDebugBlurTex = Texture::create2D(
+    mpDefaultFBO->getWidth(),
+    mpDefaultFBO->getHeight(),
+    ResourceFormat::RGBA32Float,
+    1u,
+    1u,
+    nullptr,
+    Resource::BindFlags::ShaderResource | Resource::BindFlags::RenderTarget);
   auto shadowDepth = Texture::create2D(
     mpDefaultFBO->getWidth(),
     mpDefaultFBO->getHeight(),
@@ -158,15 +174,19 @@ void ClassShadows::onLoad()
     1u,
     nullptr,
     Resource::BindFlags::ShaderResource | Resource::BindFlags::DepthStencil);
+
   //State
   mShadowPass.mpState = GraphicsState::create();
   auto passProg = GraphicsProgram::createFromFile("", "ShadowPass.ps.hlsl");
   mShadowPass.mpState->setProgram(passProg);
   mShadowPass.mpFbo = Fbo::create();
-  mShadowPass.mpDebugFbo = Fbo::create();
+  mShadowPass.mpBlurFbo = Fbo::create();//FboHelper::create2D(mpDefaultFBO->getWidth(), mpDefaultFBO->getHeight(), Fbo::Desc());
+  mShadowPass.mpDebugFbo = Fbo::create();//FboHelper::create2D(mpDefaultFBO->getWidth(), mpDefaultFBO->getHeight(), Fbo::Desc());  
   mShadowPass.mpFbo->attachColorTarget(mShadowPass.mpShadowMap, 0);
   mShadowPass.mpFbo->attachColorTarget(mShadowPass.mpDebugShadowMap, 1);
   mShadowPass.mpDebugFbo->attachColorTarget(mShadowPass.mpDebugShadowMap, 0);
+  mShadowPass.mpBlurFbo->attachColorTarget(mShadowPass.mpBlurTex, 0);
+  mShadowPass.mpDebugFbo->attachColorTarget(mShadowPass.mpDebugBlurTex, 0);
   mShadowPass.mpFbo->attachDepthStencilTarget(shadowDepth);
   mShadowPass.mpState->setFbo(mShadowPass.mpFbo);
 
@@ -180,6 +200,9 @@ void ClassShadows::onLoad()
   mpFrontFaceCull = RasterizerState::create(rsDesc);
 
   //Blur
+  mpBlurState = GraphicsState::create();
+  auto clampDesc = Sampler::Desc();
+  clampDesc.setAddressingMode(Sampler::AddressMode::Clamp, Sampler::AddressMode::Clamp, Sampler::AddressMode::Clamp);
   mpBlur = GaussianBlur::create(15);
 
   //Initial UI data
@@ -190,7 +213,7 @@ void ClassShadows::onLoad()
 void ClassShadows::runShadowPass()
 {
   //Clear shadow map
-  mpRenderContext->clearFbo(mShadowPass.mpFbo.get(), vec4(0.f, 0, 0, 0), 1.f, 0);
+  mpRenderContext->clearFbo(mShadowPass.mpFbo.get(), vec4(0.f, 0.f, 0, 0.f), 1.f, 0);
 
   //cache cam data
   auto cam = mpScene->getActiveCamera();
@@ -224,8 +247,9 @@ void ClassShadows::runShadowPass()
   if (mShadowMode == Variance)
   {
     //Blur
-    mpBlur->execute(mpRenderContext.get(), mShadowPass.mpFbo->getColorTexture(0), mShadowPass.mpFbo);
-    mShadowPass.mpShadowMap = mShadowPass.mpFbo->getColorTexture(0);
+    mpBlur->execute(mpRenderContext.get(), mShadowPass.mpFbo->getColorTexture(0), mShadowPass.mpBlurFbo);
+    mShadowPass.mpShadowMap = mShadowPass.mpBlurFbo->getColorTexture(0);
+
     //Also blur debug map if debugging
     if(mDebugData.bShouldDebugDrawShadowMap)
     {

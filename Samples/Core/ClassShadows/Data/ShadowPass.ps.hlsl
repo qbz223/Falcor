@@ -27,6 +27,12 @@ PS_OUT main(VS_OUT vOut) : SV_TARGET
 #ifdef VARIANCE
   float depthSq = vOut.posH.w * vOut.posH.w;
   pOut.mainColor = float4(vOut.posH.w, depthSq, 0.f, 1.0f);
+#elif defined MOMENT
+  float d = vOut.posH.w;
+  float d2 = d * d;
+  float d3 = d2 * d;
+  float d4 = d2 * d2;
+  pOut.mainColor = float4(d, d2, d3, d4);
 #else
   pOut.mainColor = float4(vOut.posH.www, 1.0f);
 #endif

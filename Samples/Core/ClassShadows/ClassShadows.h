@@ -65,8 +65,11 @@ class ClassShadows : public Sample
     {
       Texture::SharedPtr mpShadowMap;
       Texture::SharedPtr mpDebugShadowMap;
+      Texture::SharedPtr mpBlurTex;
+      Texture::SharedPtr mpDebugBlurTex;
       Fbo::SharedPtr mpFbo;
       //Fbo for blur results
+      Fbo::SharedPtr mpBlurFbo;
       Fbo::SharedPtr mpDebugFbo;
       GraphicsVars::SharedPtr mpVars;
       GraphicsState::SharedPtr mpState;
@@ -85,6 +88,7 @@ class ClassShadows : public Sample
     bool mbFrontFaceCulling = false;
     RasterizerState::SharedPtr mpBackFaceCull;
     RasterizerState::SharedPtr mpFrontFaceCull;
+    GraphicsState::SharedPtr mpBlurState;
     GaussianBlur::UniquePtr mpBlur;
 
     typedef uint32_t ShadowMode; enum {Basic = 0, Variance = 1, Moment = 2};
