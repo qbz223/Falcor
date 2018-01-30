@@ -201,8 +201,6 @@ void ClassShadows::onLoad()
 
   //Blur
   mpBlurState = GraphicsState::create();
-  auto clampDesc = Sampler::Desc();
-  clampDesc.setAddressingMode(Sampler::AddressMode::Clamp, Sampler::AddressMode::Clamp, Sampler::AddressMode::Clamp);
   mpBlur = GaussianBlur::create(15);
 
   //Initial UI data
@@ -213,7 +211,7 @@ void ClassShadows::onLoad()
 void ClassShadows::runShadowPass()
 {
   //Clear shadow map
-  mpRenderContext->clearFbo(mShadowPass.mpFbo.get(), vec4(0.f, 0.f, 0, 0.f), 1.f, 0);
+  mpRenderContext->clearFbo(mShadowPass.mpFbo.get(), vec4(9999.f, 0.f, 0, 0.f), 1.f, 0);
 
   //cache cam data
   auto cam = mpScene->getActiveCamera();
