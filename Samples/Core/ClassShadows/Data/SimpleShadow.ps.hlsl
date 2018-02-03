@@ -15,18 +15,24 @@ cbuffer PsPerFrame
 {
   float3 lightDir;
   float depthBias;
+  float debugCoef;
 }
 
 SamplerComparisonState gSampler;
 SamplerState gTestSampler;
 Texture2D gShadowMap;
 
+float4 getShadowSample(float4 lightPosH)
+{
+  float2 uv = lightPosH.xy;
+  uv.y = 1 - uv.y;
+  return gShadowMap.Sample(gTestSampler, uv);
+}
+
 float getShadowFactor(float4 lightPosH, float3 worldPos)
 {
   float depth = lightPosH.w;
-  float2 uv = lightPosH.xy;
-  uv.y = 1 - uv.y;
-  float4 shadowSample = gShadowMap.Sample(gTestSampler, uv);
+  float4 shadowSample = getShadowSample(lightPosH);
   float shadowDepth = shadowSample.x;
   if(shadowSample.w < 0.001f)
     shadowDepth = 9999.f;
@@ -35,6 +41,7 @@ float getShadowFactor(float4 lightPosH, float3 worldPos)
   float variance = max(shadowDepthSq - shadowDepth * shadowDepth, depthBias);
   float depthDelta = depth - shadowDepth;
   float p = variance / (variance + depthDelta * depthDelta);
+  return shadowSample.x;
   if(depth > shadowDepth)
     return p;
   else
@@ -80,9 +87,22 @@ float getShadowFactor(float4 lightPosH, float3 worldPos)
 
 float4 main(VS_OUT vOut) : SV_TARGET
 {
+#ifdef DRAW_MAP
+  float4 shadowSample = getShadowSample(vOut.lightPosH);
+  shadowSample.xyz /= debugCoef;
+  return shadowSample;
+#endif
+
+#ifdef DRAW_UV
+  float2 uv = vOut.lightPosH.xy;
+  //uv.y = 1 - uv.y;
+  return float4(uv, 0, 1);
+#endif
+
   float shadowFactor = getShadowFactor(vOut.lightPosH, vOut.posW);
 #ifdef VARIANCE
   float nDotL = min(dot(-vOut.normalW, lightDir), shadowFactor) * shadowFactor;
+  nDotL = shadowFactor;
 #elif defined MOMENT
   float nDotL = shadowFactor;
 #else

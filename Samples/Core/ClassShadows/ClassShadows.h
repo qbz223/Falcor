@@ -55,6 +55,9 @@ class ClassShadows : public Sample
     struct DebugMapData
     {
       bool bShouldDebugDrawShadowMap = false;
+      bool bShouldLockCamToLight = false;
+      bool bShouldDebugDrawShadowUv = false;
+      bool bShouldDebugDrawProjectedMap = false;
       vec2 position;
       vec2 size;
       float debugCoef = 10.f; //divide the depth by this to make it more easily viewable 
@@ -83,6 +86,7 @@ class ClassShadows : public Sample
     {
       vec3 lightDir;
       float depthBias = 0.19f;
+      float debugCoef = 10.f;
     } mPsPerFrame;
 
     bool mbFrontFaceCulling = false;

@@ -70,6 +70,10 @@ void ClassShadows::onGuiRender()
         auto& passProg = mShadowPass.mpState->getProgram();
         prog->clearDefines();
         passProg->clearDefines();
+        //Just easier so can clear the defines without messing up debug define
+        mDebugData.bShouldDebugDrawShadowUv = false;
+        mDebugData.bShouldDebugDrawProjectedMap = false;
+
 
         if(mShadowMode == Variance)
         {
@@ -98,12 +102,37 @@ void ClassShadows::onGuiRender()
     mpGui->addSeparator();
 
     //Debug drawing shadow map controls
-    if (mpGui->beginGroup("Debug Maps"))
+    if (mpGui->beginGroup("Debug"))
     {
+      mpGui->addCheckBox("Lock Cam to Light", mDebugData.bShouldLockCamToLight);
+
+      if (mpGui->addCheckBox("Draw Projected Shadow Map", mDebugData.bShouldDebugDrawProjectedMap))
+      {
+        if (mDebugData.bShouldDebugDrawProjectedMap)
+          mpState->getProgram()->addDefine("DRAW_MAP");
+        else
+          mpState->getProgram()->removeDefine("DRAW_MAP");
+      }
+
+      if(mpGui->addCheckBox("Draw Shadow UVs", mDebugData.bShouldDebugDrawShadowUv))
+      {
+        if(mDebugData.bShouldDebugDrawShadowUv)
+          mpState->getProgram()->addDefine("DRAW_UV");
+        else
+          mpState->getProgram()->removeDefine("DRAW_UV");
+      }
+
+      if(mDebugData.bShouldDebugDrawShadowMap || mDebugData.bShouldDebugDrawProjectedMap)
+      {
+        if(mpGui->addFloatVar("Debug Coef", mDebugData.debugCoef, 0.0001f))
+        {
+          mPsPerFrame.debugCoef = mDebugData.debugCoef;
+        }
+      }
+
       mpGui->addCheckBox("Debug Draw Map", mDebugData.bShouldDebugDrawShadowMap);
       if(mDebugData.bShouldDebugDrawShadowMap)
       {
-        mpGui->addFloatVar("Debug Coef", mDebugData.debugCoef, 0.0001f);
         mpGui->addFloatVar("Left", mDebugData.position.x, 0, mpDefaultFBO->getWidth() - mDebugData.size.x);
         mpGui->addFloatVar("Top", mDebugData.position.y, 0, mpDefaultFBO->getHeight() - mDebugData.size.y);
         mpGui->addFloatVar("Width", mDebugData.size.x, 1, (float)mpDefaultFBO->getWidth());
@@ -118,7 +147,7 @@ void ClassShadows::onLoad()
   //Main Pass
   mpScene = Scene::create();
   auto cam = Camera::create();
-  cam->setDepthRange(0.01f, 100.f);
+  cam->setDepthRange(0.01f, 10000.f);
   mpScene->addCamera(cam);
   mpState = GraphicsState::create();
   auto prog = GraphicsProgram::createFromFile("ShadowVS.slang", "SimpleShadow.ps.hlsl");
@@ -261,9 +290,12 @@ void ClassShadows::runShadowPass()
   mPsPerFrame.lightDir = lightData.worldDir;
 
   //Restore previous camera state
-  cam->setPosition(prevCamData.position);
-  cam->setTarget(prevCamData.target);
-  cam->setUpVector(prevCamData.up);
+  if(!mDebugData.bShouldLockCamToLight)
+  {
+    cam->setPosition(prevCamData.position);
+    cam->setTarget(prevCamData.target);
+    cam->setUpVector(prevCamData.up);
+  }
 }
 
 void ClassShadows::debugDrawShadowMap()
