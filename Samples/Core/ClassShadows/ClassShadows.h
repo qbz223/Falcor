@@ -80,6 +80,7 @@ class ClassShadows : public Sample
     } mShadowPass;
 
     mat4 mLightViewProj = glm::mat4();
+    const uint32_t shadowMapDim = 2048;
 
     //Main pass ps cbuffer
     struct PsPerFrame

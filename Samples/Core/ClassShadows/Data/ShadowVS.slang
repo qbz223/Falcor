@@ -110,9 +110,7 @@ VS_OUT main(VS_IN vIn)
     float4 posW = mul(vIn.pos, worldMat);
     vOut.posW = posW.xyz;
     vOut.posH = mul(posW, gCam.viewProjMat);
-    vOut.lightPosH = mul(posW, lightViewProj);
-    vOut.lightPosH.xy = (vOut.lightPosH.xy + 1) * 0.5f;
-    //vOut.lightPosH /= vOut.lightPosH.w;
+    vOut.lightPosH = mul(posW, lightViewProj);    
 
 #ifdef HAS_TEXCRD
     vOut.texC = vIn.texC;
