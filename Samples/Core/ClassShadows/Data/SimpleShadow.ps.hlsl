@@ -1,14 +1,9 @@
-struct VS_OUT
+__import DefaultVS;
+
+struct VS_OUT_SHADOWS
 {
-  float3 normalW    : NORMAL;
-  float3 bitangentW : BITANGENT;
-  float2 texC       : TEXCRD;
-  float3 posW       : POSW;
-  float3 colorV     : COLOR;
-  float4 prevPosH   : PREVPOSH;
-  float2 lightmapC  : LIGHTMAPUV;
-  float4 posH : SV_POSITION;
-  float4 lightPosH : LIGHTPOSITION;
+  VS_OUT defaultOut;
+  float4 lightPosH : LIGHTPOS;
 };
 
 cbuffer PsPerFrame
@@ -35,7 +30,7 @@ float4 getShadowSample(float4 lightPosH)
   return gShadowMap.Sample(gTestSampler, getShadowUv(lightPosH));
 }
 
-float getShadowFactor(float4 lightPosH, float3 worldPos)
+float getShadowFactor(float4 lightPosH)
 {
   float depth = lightPosH.w;
   float4 shadowSample = getShadowSample(lightPosH);
@@ -94,7 +89,7 @@ float getShadowFactor(float4 lightPosH, float3 worldPos)
 
 }
 
-float4 main(VS_OUT vOut) : SV_TARGET
+float4 main(VS_OUT_SHADOWS vOut) : SV_TARGET
 {
 #ifdef DRAW_MAP
   float4 shadowSample = getShadowSample(vOut.lightPosH);
@@ -109,13 +104,13 @@ float4 main(VS_OUT vOut) : SV_TARGET
   return float4(uv, 0, 1);
 #endif
 
-  float shadowFactor = getShadowFactor(vOut.lightPosH, vOut.posW);
+  float shadowFactor = getShadowFactor(vOut.lightPosH);
 #ifdef VARIANCE
-  float nDotL = min(dot(-vOut.normalW, lightDir), shadowFactor) * shadowFactor;
+  float nDotL = min(dot(-vOut.defaultOut.normalW, lightDir), shadowFactor) * shadowFactor;
 #elif defined MOMENT
   float nDotL = shadowFactor;
 #else
-  float nDotL = dot(-vOut.normalW, lightDir) * shadowFactor;
+  float nDotL = dot(-vOut.defaultOut.normalW, lightDir) * shadowFactor;
 #endif
   return float4(nDotL.xxx, 1.0f);
 }

@@ -25,129 +25,25 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ***************************************************************************/
-#include "VertexAttrib.h"
-
+__import DefaultVS;
 __import ShaderCommon;
 
-struct VS_IN
+struct VS_OUT_SHADOWS
 {
-    float4 pos         : POSITION;
-#ifdef HAS_NORMAL
-    float3 normal      : NORMAL;
-#endif
-#ifdef HAS_BITANGENT
-    float3 bitangent   : BITANGENT;
-#endif
-#ifdef HAS_TEXCRD
-    float2 texC        : TEXCOORD;
-#endif
-#ifdef HAS_LIGHTMAP_UV
-    float2 lightmapC   : LIGHTMAP_UV;
-#endif
-#ifdef HAS_COLORS
-    float3 color       : DIFFUSE_COLOR;
-#endif
-#ifdef _VERTEX_BLENDING
-    float4 boneWeights : BONE_WEIGHTS;
-    uint4  boneIds     : BONE_IDS;
-#endif
-    uint instanceID : SV_INSTANCEID;
+  VS_OUT defaultOut;
+  float4 lightPosH : LIGHTPOS;
 };
-
-#ifndef INTERPOLATION_MODE
-#define INTERPOLATION_MODE linear
-#endif
-
-struct VS_OUT
-{
-    INTERPOLATION_MODE float3 normalW    : NORMAL;
-    INTERPOLATION_MODE float3 bitangentW : BITANGENT;
-    INTERPOLATION_MODE float2 texC       : TEXCRD;
-    INTERPOLATION_MODE float3 posW       : POSW;
-    INTERPOLATION_MODE float3 colorV     : COLOR;
-    INTERPOLATION_MODE float4 prevPosH   : PREVPOSH;
-    INTERPOLATION_MODE float2 lightmapC  : LIGHTMAPUV;
-    float4 posH : SV_POSITION;
-    float4 lightPosH : LIGHTPOSITION;
-#ifdef _SINGLE_PASS_STEREO
-    INTERPOLATION_MODE float4 rightEyePosS : NV_X_RIGHT;
-    uint4 viewportMask : NV_VIEWPORT_MASK;
-    uint renderTargetIndex : SV_RenderTargetArrayIndex;
-#endif
-};
-
-float4x4 getWorldMat(VS_IN vIn)
-{
-    float4x4 worldMat = gWorldMat[vIn.instanceID];
-
-#ifdef _VERTEX_BLENDING
-    worldMat = mul(getBlendedBoneMat(vIn.boneWeights, vIn.boneIds), worldMat);
-#endif
-
-    return worldMat;
-}
-
-float3x3 getWorldInvTransposeMat(VS_IN vIn)
-{
-    float3x3 worldInvTransposeMat = (float3x3)gWorldInvTransposeMat[vIn.instanceID];
-
-#ifdef _VERTEX_BLENDING
-    worldInvTransposeMat = mul(getBlendedInvTransposeBoneMat(vIn.boneWeights, vIn.boneIds), worldInvTransposeMat);
-#endif
-
-    return worldInvTransposeMat;
-}
 
 cbuffer LightMatrixBuffer
 {
   float4x4 lightViewProj;
 }
 
-VS_OUT main(VS_IN vIn)
+VS_OUT_SHADOWS main(VS_IN vIn)
 {
-    VS_OUT vOut;
-    float4x4 worldMat = getWorldMat(vIn);
-    float4 posW = mul(vIn.pos, worldMat);
-    vOut.posW = posW.xyz;
-    vOut.posH = mul(posW, gCam.viewProjMat);
-    vOut.lightPosH = mul(posW, lightViewProj);    
-
-#ifdef HAS_TEXCRD
-    vOut.texC = vIn.texC;
-#else
-    vOut.texC = 0;
-#endif
-
-#ifdef HAS_COLORS
-    vOut.colorV = vIn.color;
-#else
-    vOut.colorV = 0;
-#endif
-
-#ifdef HAS_NORMAL
-    vOut.normalW = mul(vIn.normal, getWorldInvTransposeMat(vIn)).xyz;
-#else
-    vOut.normalW = 0;
-#endif
-
-#ifdef HAS_BITANGENT
-    vOut.bitangentW = mul(vIn.bitangent, (float3x3)worldMat).xyz;
-#else
-    vOut.bitangentW = 0;
-#endif
-
-#ifdef HAS_LIGHTMAP_UV
-    vOut.lightmapC = vIn.lightmapC;
-#else
-    vOut.lightmapC = 0;
-#endif
-    vOut.prevPosH = mul(posW, gCam.prevViewProjMat);
-
-#ifdef _SINGLE_PASS_STEREO
-    vOut.rightEyePosS = mul(posW, gCam.rightEyeViewProjMat).x;
-    vOut.viewportMask = 0x00000001;
-    vOut.renderTargetIndex = 0;
-#endif
-
+  VS_OUT defaultOut = defaultVS(vIn);
+  VS_OUT_SHADOWS vOut;
+  vOut.defaultOut = defaultOut;
+  vOut.lightPosH = mul(float4(vOut.defaultOut.posW, 1.0f), lightViewProj);
   return vOut;
 }
