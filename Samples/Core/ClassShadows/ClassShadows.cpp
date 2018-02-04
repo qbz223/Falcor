@@ -266,7 +266,7 @@ void ClassShadows::runShadowPass()
     mShadowPass.mpShadowMap = mShadowPass.mpFbo->getColorTexture(0);
     mShadowPass.mpDebugShadowMap = mShadowPass.mpFbo->getColorTexture(1);
   }
-  if (mShadowMode == Variance)
+  if (mShadowMode == Variance || mShadowMode == Moment)
   {
     //Blur
     mpBlur->execute(mpRenderContext.get(), mShadowPass.mpFbo->getColorTexture(0), mShadowPass.mpBlurFbo);

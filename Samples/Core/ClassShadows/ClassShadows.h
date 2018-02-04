@@ -86,7 +86,7 @@ class ClassShadows : public Sample
     struct PsPerFrame
     {
       vec3 lightDir;
-      float depthBias = 0.19f;
+      float depthBias = 0.001f;
       float debugCoef = 10.f;
     } mPsPerFrame;
 
