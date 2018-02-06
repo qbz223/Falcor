@@ -92,6 +92,13 @@ float momentShadowFactor(float depth, float4 shadowSample)
   float z2 = (-c.y - sqrtTerm) / (2 * c.z);
   float z3 = (-c.y + sqrtTerm) / (2 * c.z);
 
+  if(z2 > z3)
+  {
+    float temp = z2;
+    z2 = z3;
+    z3 = temp;
+  }
+
   //-- If depth <= z2
   //  return zero
   if(depth <= z2)
@@ -115,7 +122,8 @@ float momentShadowFactor(float depth, float4 shadowSample)
 
 float applyImplicitAmbient(float shadowFactor)
 {
-  return shadowFactor * (1 - kShadowMin) + kShadowMin;
+  return lerp(kShadowMin, 1, shadowFactor);
+  //return shadowFactor * (1 - kShadowMin) + kShadowMin;
 }
 
 float getShadowFactor(float4 lightPosH)
@@ -132,9 +140,7 @@ float getShadowFactor(float4 lightPosH)
   float p = variance / (variance + depthDelta * depthDelta);
   if(depth > shadowDepth + depthBias)
   {
-    p = min(p, 0.001f);
     //[0 - 1] -> [0.25 -> 1]
-    //return p * 0.75f + 0.25f;
     return applyImplicitAmbient(p);
   }
   else
@@ -144,7 +150,6 @@ float getShadowFactor(float4 lightPosH)
   if(uvInBounds(uv))
   {
     float p = 1 - saturate(momentShadowFactor(depth, shadowSample));
-    //return p * 0.75f + 0.25f;
     return applyImplicitAmbient(p);
   }
   else
@@ -175,7 +180,6 @@ float4 main(VS_OUT_SHADOWS vOut) : SV_TARGET
 
   float shadowFactor = getShadowFactor(vOut.lightPosH);
 #ifdef VARIANCE
-  //float nDotL = min(dot(-vOut.defaultOut.normalW, lightDir), shadowFactor) * shadowFactor;
   float nDotL = dot(-vOut.defaultOut.normalW, lightDir) * shadowFactor;
 #elif defined MOMENT
   float nDotL = dot(-vOut.defaultOut.normalW, lightDir) * shadowFactor;

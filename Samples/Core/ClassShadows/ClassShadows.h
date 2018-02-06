@@ -70,6 +70,7 @@ class ClassShadows : public Sample
       Texture::SharedPtr mpDebugShadowMap;
       Texture::SharedPtr mpBlurTex;
       Texture::SharedPtr mpDebugBlurTex;
+      Texture::SharedPtr mpDepthTex;
       Fbo::SharedPtr mpFbo;
       //Fbo for blur results
       Fbo::SharedPtr mpBlurFbo;

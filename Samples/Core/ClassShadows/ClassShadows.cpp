@@ -196,6 +196,15 @@ void ClassShadows::onLoad()
     1u,
     nullptr,
     Resource::BindFlags::ShaderResource | Resource::BindFlags::RenderTarget);
+  //Depth Buffer
+  mShadowPass.mpDepthTex = Texture::create2D(
+    shadowMapDim,
+    shadowMapDim,
+    ResourceFormat::D32Float,
+    1u,
+    1u,
+    nullptr,
+    Resource::BindFlags::DepthStencil);
 
   //State
   mShadowPass.mpState = GraphicsState::create();
@@ -206,6 +215,7 @@ void ClassShadows::onLoad()
   mShadowPass.mpDebugFbo = Fbo::create();
   mShadowPass.mpFbo->attachColorTarget(mShadowPass.mpShadowMap, 0);
   mShadowPass.mpFbo->attachColorTarget(mShadowPass.mpDebugShadowMap, 1);
+  mShadowPass.mpFbo->attachDepthStencilTarget(mShadowPass.mpDepthTex);
   mShadowPass.mpDebugFbo->attachColorTarget(mShadowPass.mpDebugShadowMap, 0);
   mShadowPass.mpBlurFbo->attachColorTarget(mShadowPass.mpBlurTex, 0);
   mShadowPass.mpDebugFbo->attachColorTarget(mShadowPass.mpDebugBlurTex, 0);
