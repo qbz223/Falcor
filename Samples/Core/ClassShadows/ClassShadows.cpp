@@ -257,7 +257,7 @@ void ClassShadows::runShadowPass()
   cam->setPosition(effectiveLightPos);
   cam->setTarget(vec3(0, 0, 0));
   cam->setUpVector(vec3(0, 1, 0));
-  cam->setAspectRatio(1.0f); // = 2048 / 2048
+  //cam->setAspectRatio(1.0f); // = 2048 / 2048
 
   //Update debug factor
   auto cb = mShadowPass.mpVars->getConstantBuffer("PsPerFrame");
