@@ -99,6 +99,18 @@ void ClassShadows::onGuiRender()
       }
 
       mpGui->addFloatVar("Depth Bias", mPsPerFrame.depthBias, 0);
+      if(mShadowMode == Variance || mShadowMode == Moment)
+      {
+        if(mpGui->beginGroup("Blur"))
+        {
+          if(mpGui->addIntVar("Kernel Size", kernelSize, 1, shadowMapDim))
+            mpBlur->setKernelWidth(kernelSize);
+          if(mpGui->addFloatVar("Sigma", sigma))
+            mpBlur->setSigma(sigma);
+          mpGui->endGroup();
+        }
+      }
+
       mpGui->endGroup();
     }
     mpGui->addSeparator();

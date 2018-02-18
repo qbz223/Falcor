@@ -50,23 +50,28 @@ float4 blur(float2 texC, uint arrayIndex)
 float4 blur(float2 texC)
 #endif
 {
+    float w, h;
+    gSrcTex.GetDimensions(w, h);
 #ifdef _HORIZONTAL_BLUR
     const float2 dir = float2(1, 0);
+    const float delta = 1.0f / w;
 #elif defined _VERTICAL_BLUR
     const float2 dir = float2(0, 1);
+    const float delta = 1.0f / h;
 #else
     Error. Need to define either _HORIZONTAL_BLUR or _VERTICAL_BLUR
 #endif
 
    const int2 offset = -(_KERNEL_WIDTH / 2) * dir;
+   texC = texC - delta * ((_KERNEL_WIDTH / 2) * dir);
 
     float4 c = float4(0,0,0,0);
     $for(i in Range(_KERNEL_WIDTH))
     {
 #ifdef _USE_TEX2D_ARRAY
-        c += gSrcTex.SampleLevel(gSampler, float3(texC, arrayIndex), 0, offset + i*dir)*weights[i];
+        c += gSrcTex.SampleLevel(gSampler, float3(texC + i * delta * dir, arrayIndex), 0, 0)*weights[i];
 #else
-        c += gSrcTex.SampleLevel(gSampler, texC, 0, offset + i*dir)*weights[i];
+        c += gSrcTex.SampleLevel(gSampler, texC + i * delta * dir, 0, 0)*weights[i];
 #endif
     }
     return c;
