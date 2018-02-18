@@ -35,7 +35,18 @@ void Illumination::onGuiRender()
     if (openFileDialog("Scene files\0 * .fscene\0\0", filename))
     {
       mpScene = Scene::loadFromFile(filename);
+      mpScene->getActiveCamera()->setDepthRange(0.001f, 1000.0f);
       mpSceneRenderer = SceneRenderer::create(mpScene);
+    }
+  }
+
+  if(mpGui->addButton("Load Skybox"))
+  {
+    std::string filename;
+    if (openFileDialog("HDR files\0 * .hdr\0\0", filename))
+    {
+      mpHdrImage = createTextureFromFile(filename, false, false, Resource::BindFlags::ShaderResource);
+      mpSkybox = SkyBox::create(mpHdrImage, mpSampler);
     }
   }
 }
@@ -49,6 +60,8 @@ void Illumination::onLoad()
   mpState->setProgram(prog);
   mpState->setFbo(mpDefaultFBO);
   mpVars = GraphicsVars::create(prog->getActiveVersion()->getReflector());
+
+  mpSampler = Sampler::create(Sampler::Desc());
 }
 
 void Illumination::onFrameRender()
@@ -60,6 +73,12 @@ void Illumination::onFrameRender()
     mpSceneRenderer->update(mCurrentTime);
     //y tho? (hacks around multiple swapchain error I still dont understand)
     mpState->setFbo(mpDefaultFBO);
+
+    if(mpSkybox)
+    {
+      mpSkybox->render(mpRenderContext.get(), mpScene->getActiveCamera().get());
+    }
+
     mpRenderContext->pushGraphicsState(mpState);
     mpRenderContext->pushGraphicsVars(mpVars);
     mpSceneRenderer->renderScene(mpRenderContext.get());
