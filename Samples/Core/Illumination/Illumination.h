@@ -43,6 +43,8 @@ class Illumination : public Sample
     void onGuiRender() override;
 
   private:
+    void loadModel(std::string filename);
+
     Scene::SharedPtr mpScene;
     Texture::SharedPtr mpHdrImage = nullptr;
     Texture::SharedPtr mpIrradianceMap = nullptr;

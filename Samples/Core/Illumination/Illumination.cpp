@@ -29,32 +29,45 @@
 
 void Illumination::onGuiRender()
 {
-  if (mpGui->addButton("Load Scene"))
+  if(mpGui->beginGroup("Asset Loading", true))
   {
-    std::string filename;
-    if (openFileDialog("Scene files\0 * .fscene\0\0", filename))
+    if(mpGui->addButton("Load Model"))
     {
-      mpScene = Scene::loadFromFile(filename);      
-      mpScene->getActiveCamera()->setDepthRange(0.001f, 1000.0f);
-      mpSceneRenderer = SceneRenderer::create(mpScene);
+      std::string filename;
+      if (openFileDialog(Model::kSupportedFileFormatsStr, filename))
+      {
+        loadModel(filename);
+      }
     }
-  }
 
-  if(mpGui->addButton("Load Skybox"))
-  {
-    std::string filename;
-    if (openFileDialog("HDR files\0 * .hdr\0\0", filename))
+    if (mpGui->addButton("Load Scene"))
     {
-      mpHdrImage = createTextureFromFile(filename, false, false, Resource::BindFlags::ShaderResource);
-      mpSkybox = SkyBox::create(mpHdrImage, mpSampler);
-
-      std::string irrFilename = filename.substr(0, filename.size() - 4);
-      irrFilename = irrFilename.append(".irr.hdr");
-      mpIrradianceMap = createTextureFromFile(irrFilename, false, false, Resource::BindFlags::ShaderResource);
-      mpVars->setSrv(0, 0, 0, mpIrradianceMap->getSRV());;
-
-      mDebugSettings.shouldDrawIrr = false;
+      std::string filename;
+      if (openFileDialog("Scene files\0 * .fscene\0\0", filename))
+      {
+        mpScene = Scene::loadFromFile(filename);      
+        mpScene->getActiveCamera()->setDepthRange(0.001f, 1000.0f);
+        mpSceneRenderer = SceneRenderer::create(mpScene);
+      }
     }
+
+    if(mpGui->addButton("Load Skybox"))
+    {
+      std::string filename;
+      if (openFileDialog("HDR files\0 * .hdr\0\0", filename))
+      {
+        mpHdrImage = createTextureFromFile(filename, false, false, Resource::BindFlags::ShaderResource);
+        mpSkybox = SkyBox::create(mpHdrImage, mpSampler);
+
+        std::string irrFilename = filename.substr(0, filename.size() - 4);
+        irrFilename = irrFilename.append(".irr.hdr");
+        mpIrradianceMap = createTextureFromFile(irrFilename, false, false, Resource::BindFlags::ShaderResource);
+        mpVars->setSrv(0, 0, 0, mpIrradianceMap->getSRV());;
+
+        mDebugSettings.shouldDrawIrr = false;
+      }
+    }
+    mpGui->endGroup();
   }
 
   if(mpGui->beginGroup("Tone Mapping"))
@@ -89,9 +102,7 @@ void Illumination::onGuiRender()
 
 void Illumination::onLoad()
 {
-  mpScene = Scene::loadFromFile("Scenes\\DragonPlane.fscene");
-  mpScene->getActiveCamera()->setDepthRange(0.001f, 1000.0f);
-  mpSceneRenderer = SceneRenderer::create(mpScene);
+  loadModel("teapot.obj");
   mpState = GraphicsState::create();
   auto prog = GraphicsProgram::createFromFile("", "Illumination.ps.hlsl");
   mpState->setProgram(prog);
@@ -166,6 +177,20 @@ void Illumination::onResizeSwapChain()
     pCam->setFocalLength(21.0f);
     pCam->setAspectRatio(width / height);
   }
+}
+
+void Illumination::loadModel(std::string filename)
+{
+  auto model = Model::createFromFile(filename.c_str());
+  mpScene = Scene::create();
+  mpScene->addModelInstance(model, "instance");
+  auto cam = Camera::create();
+  cam->setDepthRange(0.001f, 1000.0f);
+  auto newCamPos = cam->getPosition();
+  newCamPos += glm::vec3(0, model->getRadius(), 2 * model->getRadius());
+  cam->setPosition(newCamPos);
+  mpScene->addCamera(cam);
+  mpSceneRenderer = SceneRenderer::create(mpScene);
 }
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd)
