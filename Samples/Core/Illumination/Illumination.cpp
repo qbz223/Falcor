@@ -52,6 +52,37 @@ void Illumination::onGuiRender()
       irrFilename = irrFilename.append(".irr.hdr");
       mpIrradianceMap = createTextureFromFile(irrFilename, false, false, Resource::BindFlags::ShaderResource);
       mpVars->setSrv(0, 0, 0, mpIrradianceMap->getSRV());;
+
+      mDebugSettings.shouldDrawIrr = false;
+    }
+  }
+
+  if(mpGui->beginGroup("Tone Mapping"))
+  {
+    if(mpGui->addCheckBox("Enabled", mDebugSettings.enableToneMapping))
+    {
+      if(mDebugSettings.enableToneMapping)
+        mpState->getProgram()->addDefine("USE_TONE_MAPPING");
+      else
+        mpState->getProgram()->clearDefines();
+    }
+
+    if(mDebugSettings.enableToneMapping)
+    {
+      mpGui->addFloatVar("Exposure", mPsPerFrame.exposure);
+    }
+
+    mpGui->endGroup();
+  }
+
+  if(mpGui->beginGroup("Debug"))
+  {
+    if(mpGui->addCheckBox("Draw Irradiance", mDebugSettings.shouldDrawIrr))
+    {
+      if(mDebugSettings.shouldDrawIrr)
+        mpSkybox = SkyBox::create(mpIrradianceMap, mpSampler);
+      else
+        mpSkybox = SkyBox::create(mpHdrImage, mpSampler);
     }
   }
 }
@@ -79,6 +110,11 @@ void Illumination::onFrameRender()
     mpSceneRenderer->update(mCurrentTime);
     //y tho? (hacks around multiple swapchain error I still dont understand)
     mpState->setFbo(mpDefaultFBO);
+
+    if(mDebugSettings.enableToneMapping)
+    {
+      mpVars->getConstantBuffer("PsPerFrame")->setBlob(&mPsPerFrame, 0, sizeof(PsPerFrame));
+    }
 
     if(mpSkybox)
     {

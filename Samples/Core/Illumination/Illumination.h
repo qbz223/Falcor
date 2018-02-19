@@ -52,6 +52,17 @@ class Illumination : public Sample
     GraphicsVars::SharedPtr mpVars;
     Sampler::SharedPtr mpSampler;
 
+    struct DebugSettings
+    {
+      bool shouldDrawIrr = false;
+      bool enableToneMapping = false;
+    } mDebugSettings;
+
+    struct PsPerFrame
+    {
+      float exposure = 1.0f;
+    } mPsPerFrame;
+
     struct VsPerFrame
     {
       mat4 world = glm::mat4();
