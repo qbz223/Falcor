@@ -34,7 +34,7 @@ void Illumination::onGuiRender()
     std::string filename;
     if (openFileDialog("Scene files\0 * .fscene\0\0", filename))
     {
-      mpScene = Scene::loadFromFile(filename);
+      mpScene = Scene::loadFromFile(filename);      
       mpScene->getActiveCamera()->setDepthRange(0.001f, 1000.0f);
       mpSceneRenderer = SceneRenderer::create(mpScene);
     }
@@ -47,14 +47,20 @@ void Illumination::onGuiRender()
     {
       mpHdrImage = createTextureFromFile(filename, false, false, Resource::BindFlags::ShaderResource);
       mpSkybox = SkyBox::create(mpHdrImage, mpSampler);
+
+      std::string irrFilename = filename.substr(0, filename.size() - 4);
+      irrFilename = irrFilename.append(".irr.hdr");
+      mpIrradianceMap = createTextureFromFile(irrFilename, false, false, Resource::BindFlags::ShaderResource);
+      mpVars->setSrv(0, 0, 0, mpIrradianceMap->getSRV());;
     }
   }
 }
 
 void Illumination::onLoad()
 {
-  mpScene = Scene::create();
-  mpScene->addCamera(Camera::create());
+  mpScene = Scene::loadFromFile("Scenes\\DragonPlane.fscene");
+  mpScene->getActiveCamera()->setDepthRange(0.001f, 1000.0f);
+  mpSceneRenderer = SceneRenderer::create(mpScene);
   mpState = GraphicsState::create();
   auto prog = GraphicsProgram::createFromFile("", "Illumination.ps.hlsl");
   mpState->setProgram(prog);

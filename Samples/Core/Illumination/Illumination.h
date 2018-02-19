@@ -45,6 +45,7 @@ class Illumination : public Sample
   private:
     Scene::SharedPtr mpScene;
     Texture::SharedPtr mpHdrImage = nullptr;
+    Texture::SharedPtr mpIrradianceMap = nullptr;
     SkyBox::UniquePtr mpSkybox = nullptr;
     SceneRenderer::SharedPtr mpSceneRenderer;
     GraphicsState::SharedPtr mpState;
