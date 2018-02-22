@@ -104,9 +104,13 @@ void ClassShadows::onGuiRender()
         if(mpGui->beginGroup("Blur"))
         {
           if(mpGui->addIntVar("Kernel Size", kernelSize, 1, shadowMapDim))
+          {
             mpBlur->setKernelWidth(kernelSize);
-          if(mpGui->addFloatVar("Sigma", sigma))
-            mpBlur->setSigma(sigma);
+            mpBlur->setSigma((kernelSize / 2) / sigmaFactor);
+          }
+          mpGui->addText("Sigma = (W/2) / (Sigma Factor)");
+          if(mpGui->addFloatVar("Sigma Factor", sigmaFactor))
+            mpBlur->setSigma(max(1.f, (kernelSize / 2) / sigmaFactor));
           mpGui->endGroup();
         }
       }

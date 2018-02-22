@@ -80,8 +80,7 @@ float momentShadowFactor(float depth, float4 shadowSample)
   //M * C = D
   //M-1 * M * C = M-1 * D
   //C = M-1 * D
-  //I can do it above with inverse as described but that seems wrong/slow?
-  //Paper advics choelsku decomposition but idk how that solves??
+  //Paper advises solving with cholesky decomposition but this is easier 
   float3 c = solveCramers(bPrime, depthVec);
 
   //-- Calc roots
@@ -123,7 +122,6 @@ float momentShadowFactor(float depth, float4 shadowSample)
 float applyImplicitAmbient(float shadowFactor)
 {
   return lerp(kShadowMin, 1, shadowFactor);
-  //return shadowFactor * (1 - kShadowMin) + kShadowMin;
 }
 
 float getShadowFactor(float4 lightPosH)
@@ -179,12 +177,6 @@ float4 main(VS_OUT_SHADOWS vOut) : SV_TARGET
 #endif
 
   float shadowFactor = getShadowFactor(vOut.lightPosH);
-#ifdef VARIANCE
   float nDotL = dot(-vOut.defaultOut.normalW, lightDir) * shadowFactor;
-#elif defined MOMENT
-  float nDotL = dot(-vOut.defaultOut.normalW, lightDir) * shadowFactor;
-#else
-  float nDotL = dot(-vOut.defaultOut.normalW, lightDir) * shadowFactor;
-#endif
   return float4(nDotL.xxx, 1.0f);
 }

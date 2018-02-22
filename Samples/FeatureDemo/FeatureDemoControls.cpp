@@ -110,7 +110,7 @@ void FeatureDemo::applyAaMode()
         mTAA.createFbos(w, h, taaFboDesc);
     }
 
-    mpMainFbo = FboHelper::create2D(w, h, fboDesc);
+  mpMainFbo = FboHelper::create2D(w, h, fboDesc);
 	mpDepthPassFbo = Fbo::create();
 	mpDepthPassFbo->attachDepthStencilTarget(mpMainFbo->getDepthStencilTexture());
 }

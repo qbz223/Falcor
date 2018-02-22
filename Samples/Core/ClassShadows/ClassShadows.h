@@ -84,7 +84,7 @@ class ClassShadows : public Sample
     const uint32_t shadowMapDim = 4096;
 
     int kernelSize = 15u;
-    float sigma = 1.0f;
+    float sigmaFactor = 2.5f;
 
     //Main pass ps cbuffer
     struct PsPerFrame
