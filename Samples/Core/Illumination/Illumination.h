@@ -63,6 +63,7 @@ class Illumination : public Sample
     struct PsPerFrame
     {
       float exposure = 1.0f;
+      vec3 eyePos; 
     } mPsPerFrame;
 
     struct VsPerFrame

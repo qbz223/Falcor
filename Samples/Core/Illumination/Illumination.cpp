@@ -56,12 +56,12 @@ void Illumination::onGuiRender()
       std::string filename;
       if (openFileDialog("HDR files\0 * .hdr\0\0", filename))
       {
-        mpHdrImage = createTextureFromFile(filename, false, false, Resource::BindFlags::ShaderResource);
+        mpHdrImage = createTextureFromFile(filename, false, true, Resource::BindFlags::ShaderResource);
         mpSkybox = SkyBox::create(mpHdrImage, mpSampler);
 
         std::string irrFilename = filename.substr(0, filename.size() - 4);
         irrFilename = irrFilename.append(".irr.hdr");
-        mpIrradianceMap = createTextureFromFile(irrFilename, false, false, Resource::BindFlags::ShaderResource);
+        mpIrradianceMap = createTextureFromFile(irrFilename, false, true, Resource::BindFlags::ShaderResource);
         mpVars->setSrv(0, 0, 0, mpIrradianceMap->getSRV());;
 
         mDebugSettings.shouldDrawIrr = false;
@@ -122,10 +122,8 @@ void Illumination::onFrameRender()
     //y tho? (hacks around multiple swapchain error I still dont understand)
     mpState->setFbo(mpDefaultFBO);
 
-    if(mDebugSettings.enableToneMapping)
-    {
-      mpVars->getConstantBuffer("PsPerFrame")->setBlob(&mPsPerFrame, 0, sizeof(PsPerFrame));
-    }
+    mPsPerFrame.eyePos = mpScene->getActiveCamera()->getPosition();
+    mpVars->getConstantBuffer("PsPerFrame")->setBlob(&mPsPerFrame, 0, sizeof(PsPerFrame));
 
     if(mpSkybox)
     {
