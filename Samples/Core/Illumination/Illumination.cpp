@@ -110,7 +110,7 @@ void Illumination::onLoad()
   mpState->setProgram(prog);
   mpState->setFbo(mpDefaultFBO);
   mpVars = GraphicsVars::create(prog->getActiveVersion()->getReflector());
-
+  generateRandomPoints();
   mpSampler = Sampler::create(Sampler::Desc());
 }
 
@@ -191,6 +191,30 @@ void Illumination::loadModel(std::string filename)
   cam->setPosition(newCamPos);
   mpScene->addCamera(cam);
   mpSceneRenderer = SceneRenderer::create(mpScene);
+}
+
+void Illumination::generateRandomPoints()
+{
+  static const uint32_t numPoints = 20;
+  std::vector<float2> hammersley;
+
+  for(uint32_t i = 0; i < numPoints; ++i)
+  {
+    float u;
+    int ii;
+    float j;
+    for(j = 0.5f, ii = i, u = 0.0f; ii; j *= 0.5f, ii >>= 1)
+    {
+      if(ii & 1)
+        u += j;
+    }
+    float v = (i + 0.5f) / numPoints;
+    hammersley.push_back(vec2(u, v));
+  }
+
+  mpRandomPointsBuffer = TypedBuffer<float2>::create((uint32_t)hammersley.size());
+  mpRandomPointsBuffer->updateData(hammersley.data(), 0, hammersley.size() * sizeof(float2));
+  mpVars->setTypedBuffer("gRandomPoints", mpRandomPointsBuffer);
 }
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd)

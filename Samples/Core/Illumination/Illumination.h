@@ -44,6 +44,7 @@ class Illumination : public Sample
 
   private:
     void loadModel(std::string filename);
+    void generateRandomPoints();
 
     Scene::SharedPtr mpScene;
     Texture::SharedPtr mpHdrImage = nullptr;
@@ -52,6 +53,7 @@ class Illumination : public Sample
     SceneRenderer::SharedPtr mpSceneRenderer;
     GraphicsState::SharedPtr mpState;
     GraphicsVars::SharedPtr mpVars;
+    TypedBuffer<float2>::SharedPtr mpRandomPointsBuffer;
     Sampler::SharedPtr mpSampler;
 
     struct DebugSettings

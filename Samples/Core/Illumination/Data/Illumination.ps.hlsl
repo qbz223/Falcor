@@ -16,6 +16,7 @@ static const float kPi = 3.14159265359f;
 SamplerState gSampler;
 Texture2D gSkybox;
 Texture2D gIrradianceMap;
+Buffer<float2> gRandomPoints;
 
 cbuffer PsPerFrame
 {
