@@ -14,6 +14,7 @@ static const float kTwoPi = 6.28318530718f;
 static const float kPi = 3.14159265359f;
 
 SamplerState gSampler;
+Texture2D gSkybox;
 Texture2D gIrradianceMap;
 
 cbuffer PsPerFrame
@@ -31,8 +32,9 @@ float3 linearToneMap(float3 color)
 
 float2 dirToSphereCoords(float3 dir)
 {
-  dir = normalize(-dir);
-  float u = 0.5 - atan(dir.zx * float2(-1, 1)) / kTwoPi;
+  dir.y *= -1;
+  dir = normalize(dir);
+  float u = 0.5 - atan2(dir.z, dir.x) / kTwoPi;
   float v = acos(-dir.y) / kPi;
   return float2(u, v);
 }
@@ -58,15 +60,17 @@ float getSpecFactor(float3 dir, float3 view)
 float4 main(VS_OUT vOut) : SV_TARGET
 {
   //float nDotL = dot(vOut.normalW, float3(0.25f, 0.5f, 0.75f));
-  //float3 view = normalize(eyePos - vOut.posW);
-  //float3 r = 2 * dot(vOut.normalW, view) * vOut.normalW - view;
-  float4 irr = gIrradianceMap.Sample(gSampler, dirToSphereCoords(vOut.normalW));
+  float3 view = normalize(eyePos - vOut.posW);
+  float3 r = 2 * dot(vOut.normalW, view) * vOut.normalW - view;
+  //float4 irr = gIrradianceMap.Sample(gSampler, dirToSphereCoords(vOut.normalW));
+  float4 irr = gSkybox.Sample(gSampler, dirToSphereCoords(r));
+  //irr = float4(dirToSphereCoords(r), 0.f, 1.0f);
 #ifdef USE_TONE_MAPPING
   float3 irrColor = linearToneMap(irr.xyz);
 #else
   float3 irrColor = irr.xyz;
 #endif
-  return float4(irrColor, 1.0f);
+  //return float4(irrColor, 1.0f);
   float kd = 1.0f;
   float3 color = (kd / kPi) * irrColor;
   return float4(irrColor.xyz, 1.0f);

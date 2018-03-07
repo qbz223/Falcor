@@ -62,7 +62,9 @@ void Illumination::onGuiRender()
         std::string irrFilename = filename.substr(0, filename.size() - 4);
         irrFilename = irrFilename.append(".irr.hdr");
         mpIrradianceMap = createTextureFromFile(irrFilename, false, true, Resource::BindFlags::ShaderResource);
-        mpVars->setSrv(0, 0, 0, mpIrradianceMap->getSRV());;
+
+        mpVars->setSrv(0, 0, 0, mpHdrImage->getSRV());
+        mpVars->setSrv(0, 1, 0, mpIrradianceMap->getSRV());
 
         mDebugSettings.shouldDrawIrr = false;
       }
@@ -195,7 +197,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 {
     Illumination sample;
     SampleConfig config;
-    config.windowDesc.title = "Falcor Project Template";
+    config.windowDesc.title = "GI";
     config.windowDesc.resizableWindow = true;
     sample.run(config);
     return 0;
