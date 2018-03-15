@@ -57,13 +57,24 @@ void Illumination::onGuiRender()
       if (openFileDialog("HDR files\0 * .hdr\0\0", filename))
       {
         mpHdrImage = createTextureFromFile(filename, false, true, Resource::BindFlags::ShaderResource);
+        mpHdrMipChain = Texture::create2D(
+          mpHdrImage->getWidth(), 
+          mpHdrImage->getHeight(), 
+          Falcor::ResourceFormat::RGBA32Float, 
+          1, 
+          Texture::kMaxPossible, 
+          nullptr, 
+          Resource::BindFlags::ShaderResource | Resource::BindFlags::RenderTarget);
+
+        mpRenderContext->blit(mpHdrImage->getSRV(), mpHdrMipChain->getRTV());
+        mpHdrMipChain->generateMips();
         mpSkybox = SkyBox::create(mpHdrImage, mpSampler);
 
         std::string irrFilename = filename.substr(0, filename.size() - 4);
         irrFilename = irrFilename.append(".irr.hdr");
         mpIrradianceMap = createTextureFromFile(irrFilename, false, true, Resource::BindFlags::ShaderResource);
 
-        mpVars->setSrv(0, 0, 0, mpHdrImage->getSRV());
+        mpVars->setSrv(0, 0, 0, mpHdrMipChain->getSRV());
         mpVars->setSrv(0, 1, 0, mpIrradianceMap->getSRV());
 
         mDebugSettings.shouldDrawIrr = false;
@@ -104,7 +115,7 @@ void Illumination::onGuiRender()
 
 void Illumination::onLoad()
 {
-  loadModel("teapot.obj");
+  loadModel("UvSphere.fbx");
   mpState = GraphicsState::create();
   auto prog = GraphicsProgram::createFromFile("", "Illumination.ps.hlsl");
   mpState->setProgram(prog);
@@ -212,6 +223,7 @@ void Illumination::generateRandomPoints()
     hammersley.push_back(vec2(u, v));
   }
 
+  //hammersley[0].x = 1;
   mpRandomPointsBuffer = TypedBuffer<float2>::create((uint32_t)hammersley.size());
   mpRandomPointsBuffer->updateData(hammersley.data(), 0, hammersley.size() * sizeof(float2));
   mpVars->setTypedBuffer("gRandomPoints", mpRandomPointsBuffer);

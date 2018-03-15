@@ -43,37 +43,78 @@ float2 dirToSphereCoords(float3 dir)
 float3 sphereCoordsToDir(float2 uv)
 {
   float x = cos(2 * kPi * (0.5f - uv.x)) * sin(kPi * uv.y);
-  float y = sin(2 * kPi * (0.5 - uv.x)) * sin(kPi * uv.y);
-  float z = cos(kPi * uv.y);
-  //think herron's formula assumes opengl. should test this quickly with a sphere
-  return float3(x, -y, z);
+  float y = cos(kPi * uv.y);
+  float z = sin(2 * kPi * (0.5 - uv.x)) * sin(kPi * uv.y);
+  return float3(x, y, z);
 }
 
-float getSpecFactor(float3 dir, float3 view)
+float getSpecFactor(float3 dir, float3 halfVec)
 {
-  const float ks = 1.0f;
-  float3 halfVec = (dir + view) / 2.0f;
+  const float ks = 0.5f;
   float dirDotHalf = dot(dir, halfVec);
   float intermediate = pow((1 - dirDotHalf), 5);
   return (ks + (1.0f - ks) * intermediate) / (4 * dirDotHalf * dirDotHalf);
 }
 
+float3 vecToColor(float3 vec)
+{
+  return (vec + 1) * 0.5f;
+}
+
+float getMipLevel(float3 normal, float3 h, float alpha, float numSamples)
+{
+  float d = ((alpha + 2) / kTwoPi) * pow(dot(normal, h), alpha);
+  uint width, height, samples;
+  gSkybox.GetDimensions(0, width, height, samples);
+  float intermediate = (width * height) / (float)numSamples;
+  return 0.5f * log2(intermediate) - 0.5f * log2(d / 4.0f);
+}
+
+float3 calcSpecular(float3 r, float3 view, float3 n)
+{
+  const int numSamples = 21;
+  float3 a = normalize(cross(float3(0, 1, 0), r));
+  float3 b = normalize(cross(r, a));
+  const float alpha = 0.01f;
+
+  float3 color = float3(0, 0, 0);
+  [unroll(numSamples)]
+  for(int i = 0; i < numSamples; ++i)
+  {
+    float2 currentPoint = normalize(gRandomPoints[i]);
+    float u = currentPoint.x;
+    float v = acos(pow(currentPoint.y, (1.0f / (alpha + 1)))) / kPi;
+    float3 dir = sphereCoordsToDir(float2(u, v));
+    float3 skewDir = normalize(dir.x * b + dir.y * r + dir.z * a);
+    float3 halfVec = (skewDir + view) / 2.0f;
+    float lod = getMipLevel(n, halfVec, alpha, numSamples);
+    float3 skyboxColor = gSkybox.SampleLevel(gSampler, dirToSphereCoords(skewDir), lod).xyz;
+#ifdef USE_TONE_MAPPING
+    skyboxColor = linearToneMap(skyboxColor);
+#endif
+    float3 contribution = getSpecFactor(skewDir, halfVec) * skyboxColor * (dot(n, r)); //n dot r is cos theta 
+    color += contribution;
+  }
+  return color / (float)numSamples;
+}
+
 float4 main(VS_OUT vOut) : SV_TARGET
 {
-  //float nDotL = dot(vOut.normalW, float3(0.25f, 0.5f, 0.75f));
+
+  //Diffuse
+  float3 dif = gIrradianceMap.Sample(gSampler, dirToSphereCoords(vOut.normalW)).xyz;
+  const float kd = 1.0f;
+  dif *= (kd / kPi);
+#ifdef USE_TONE_MAPPING
+  dif = linearToneMap(dif);
+#endif 
+
+  //Specular
   float3 view = normalize(eyePos - vOut.posW);
   float3 r = 2 * dot(vOut.normalW, view) * vOut.normalW - view;
-  //float4 irr = gIrradianceMap.Sample(gSampler, dirToSphereCoords(vOut.normalW));
-  float4 irr = gSkybox.Sample(gSampler, dirToSphereCoords(r));
-  //irr = float4(dirToSphereCoords(r), 0.f, 1.0f);
-#ifdef USE_TONE_MAPPING
-  float3 irrColor = linearToneMap(irr.xyz);
-#else
-  float3 irrColor = irr.xyz;
-#endif
-  //return float4(irrColor, 1.0f);
-  float kd = 1.0f;
-  float3 color = (kd / kPi) * irrColor;
-  return float4(irrColor.xyz, 1.0f);
+  float3 spec = calcSpecular(r, view, vOut.normalW);
+
+  float3 irr = spec + dif;
+  return float4(irr, 1.0f);
   //return float4(nDotL, nDotL, nDotL, 1.0f);
 }
