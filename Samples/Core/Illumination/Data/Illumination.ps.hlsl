@@ -22,6 +22,10 @@ cbuffer PsPerFrame
 {
   float exposure;
   float3 eyePos;
+  float alpha; 
+  float kd;
+  float ks; 
+  int lodBias;
 };
 
 float3 linearToneMap(float3 color)
@@ -50,10 +54,9 @@ float3 sphereCoordsToDir(float2 uv)
 
 float getSpecFactor(float3 dir, float3 halfVec)
 {
-  const float ks = 0.5f;
   float dirDotHalf = dot(dir, halfVec);
   float intermediate = pow((1 - dirDotHalf), 5);
-  return (ks + (1.0f - ks) * intermediate) / (4 * dirDotHalf * dirDotHalf);
+  return (ks + (1.0f - ks) * intermediate) / (4 * dirDotHalf);
 }
 
 float3 vecToColor(float3 vec)
@@ -65,17 +68,17 @@ float getMipLevel(float3 normal, float3 h, float alpha, float numSamples)
 {
   float d = ((alpha + 2) / kTwoPi) * pow(dot(normal, h), alpha);
   uint width, height, samples;
+  //TODO this is slow
   gSkybox.GetDimensions(0, width, height, samples);
   float intermediate = (width * height) / (float)numSamples;
-  return 0.5f * log2(intermediate) - 0.5f * log2(d / 4.0f);
+  return (0.5f * log2(intermediate) - 0.5f * log2(d / 4.0f)) + lodBias;
 }
 
 float3 calcSpecular(float3 r, float3 view, float3 n)
 {
-  const int numSamples = 21;
+  const int numSamples = 40;
   float3 a = normalize(cross(float3(0, 1, 0), r));
   float3 b = normalize(cross(r, a));
-  const float alpha = 0.01f;
 
   float3 color = float3(0, 0, 0);
   [unroll(numSamples)]
@@ -103,7 +106,6 @@ float4 main(VS_OUT vOut) : SV_TARGET
 
   //Diffuse
   float3 dif = gIrradianceMap.Sample(gSampler, dirToSphereCoords(vOut.normalW)).xyz;
-  const float kd = 1.0f;
   dif *= (kd / kPi);
 #ifdef USE_TONE_MAPPING
   dif = linearToneMap(dif);

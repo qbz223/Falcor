@@ -67,6 +67,10 @@ class Illumination : public Sample
     {
       float exposure = 1.0f;
       vec3 eyePos; 
+      float alpha = 20.f;
+      float kd = 0.5f;
+      float ks = 0.03f;
+      int lodBias = -3;
     } mPsPerFrame;
 
     struct VsPerFrame

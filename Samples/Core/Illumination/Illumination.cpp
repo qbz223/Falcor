@@ -83,6 +83,15 @@ void Illumination::onGuiRender()
     mpGui->endGroup();
   }
 
+  if(mpGui->beginGroup("Lighting Properties"))
+  {
+    mpGui->addFloatVar("Alpha", mPsPerFrame.alpha, 0);
+    mpGui->addFloatVar("Kd", mPsPerFrame.kd, 0);
+    mpGui->addFloatVar("Ks", mPsPerFrame.ks, 0);
+    mpGui->addIntVar("Load Bias", mPsPerFrame.lodBias);
+    mpGui->endGroup();
+  }
+
   if(mpGui->beginGroup("Tone Mapping"))
   {
     if(mpGui->addCheckBox("Enabled", mDebugSettings.enableToneMapping))
@@ -206,7 +215,7 @@ void Illumination::loadModel(std::string filename)
 
 void Illumination::generateRandomPoints()
 {
-  static const uint32_t numPoints = 20;
+  static const uint32_t numPoints = 100;
   std::vector<float2> hammersley;
 
   for(uint32_t i = 0; i < numPoints; ++i)
