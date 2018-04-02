@@ -78,4 +78,18 @@ class Illumination : public Sample
       mat4 world = glm::mat4();
       mat4 viewProj = glm::mat4();
     } mVsPerFrame;
+
+    struct CompareSettings
+    {
+      bool enabled = false;
+      float kdMin = 0.3f;
+      float kdMax = 0.9f;
+      float ksMin = 0.03f;
+      float ksMax = 0.91f;
+      float alphaMin = 10.0f;
+      float alphaMax = 300.0f;
+      int numKd = 5;
+      int numKs = 5;
+      int numAlpha = 5;
+    } mCompareSettings;
 };

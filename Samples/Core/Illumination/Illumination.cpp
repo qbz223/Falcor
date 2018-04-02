@@ -110,6 +110,23 @@ void Illumination::onGuiRender()
     mpGui->endGroup();
   }
 
+  if(mpGui->beginGroup("Comparison Mode"))
+  {
+    mpGui->addCheckBox("Active", mCompareSettings.enabled);
+    if(mCompareSettings.enabled)
+    {
+      mpGui->addFloatVar("kd min", mCompareSettings.kdMin, 0, mCompareSettings.kdMax);
+      mpGui->addFloatVar("kd max", mCompareSettings.kdMax, mCompareSettings.kdMin);
+      mpGui->addFloatVar("ks min", mCompareSettings.ksMin, 0, mCompareSettings.ksMax);
+      mpGui->addFloatVar("ks max", mCompareSettings.ksMax, mCompareSettings.ksMin);
+      mpGui->addFloatVar("alpha min", mCompareSettings.alphaMin, 0, mCompareSettings.alphaMax);
+      mpGui->addFloatVar("alpha max", mCompareSettings.alphaMax, mCompareSettings.alphaMin);
+      mpGui->addIntVar("Num kd", mCompareSettings.numKd, 1);
+      mpGui->addIntVar("Num ks", mCompareSettings.numKs, 1);
+      mpGui->addIntVar("Num alpha", mCompareSettings.numAlpha, 1);
+    }
+  }
+
   if(mpGui->beginGroup("Debug"))
   {
     if(mpGui->addCheckBox("Draw Irradiance", mDebugSettings.shouldDrawIrr))
@@ -141,6 +158,13 @@ void Illumination::onFrameRender()
   if(mpSceneRenderer)
   {
     mpSceneRenderer->update(mCurrentTime);
+
+    auto pMat = mpSceneRenderer->getScene()->getModel(0)->getMesh(0)->getMaterial();
+    //mpSceneRenderer->getScene()->getModel(0)->getMesh(0)->setMaterial()
+    //pMat->getLayer(0).albedo = glm::float4(mPsPerFrame.kd, mPsPerFrame.ks, mPsPerFrame.alpha, 0.1f);
+    pMat->setLayerAlbedo(0, glm::float4(mPsPerFrame.kd, mPsPerFrame.ks, mPsPerFrame.alpha, 0.1f));
+
+
     //y tho? (hacks around multiple swapchain error I still dont understand)
     mpState->setFbo(mpDefaultFBO);
 
@@ -153,9 +177,54 @@ void Illumination::onFrameRender()
     }
 
     mpRenderContext->pushGraphicsState(mpState);
-    mpRenderContext->pushGraphicsVars(mpVars);
-    mpSceneRenderer->renderScene(mpRenderContext.get());
-    mpRenderContext->popGraphicsVars();
+    if(mCompareSettings.enabled)
+    {
+      auto meshInst = mpScene->getModel(0)->getMeshInstance(0, 0);
+      auto bounds = mpScene->getModel(0)->getBoundingBox().getSize();
+
+      auto cb = mpVars->getConstantBuffer("PsPerFrame");
+      //This is slow/stupid but i was having issues using the material system
+      //so whatever tbh. First place to look if i wanted to optimize this one day 
+      for(int i = 0; i < mCompareSettings.numKd; ++i)
+      {
+        float kdT = mCompareSettings.numKd == 1 ? 0 : (float)i / (mCompareSettings.numKd - 1);
+        float kd = lerp(mCompareSettings.kdMin, mCompareSettings.kdMax, kdT);
+        float xOffset = bounds.x * i * 1.5f;
+        for(int j = 0; j < mCompareSettings.numKs; ++j)
+        {
+          float ksT = mCompareSettings.numKs == 1 ? 0 : (float)j / (mCompareSettings.numKs - 1);
+          float ks = lerp(mCompareSettings.ksMin, mCompareSettings.ksMax, ksT);
+          float yOffset = bounds.y * j * 1.5f;
+          for(int k = 0; k < mCompareSettings.numAlpha; ++k)
+          {
+            float alphaT = mCompareSettings.numAlpha == 1 ? 0 : (float)k / (mCompareSettings.numAlpha - 1);
+            float alpha = lerp(mCompareSettings.alphaMin, mCompareSettings.alphaMax, alphaT);
+            float zOffset = bounds.z * k * 1.5f;
+
+            float3 offset = float3(xOffset, yOffset, zOffset);
+            meshInst->setTranslation(offset, false);
+
+            PsPerFrame currentData = PsPerFrame(mPsPerFrame);
+            currentData.alpha = alpha;
+            currentData.kd = kd;
+            currentData.ks = ks;
+              
+            cb->setBlob(&currentData, 0, sizeof(PsPerFrame));
+  
+            mpRenderContext->pushGraphicsVars(mpVars);
+            mpSceneRenderer->renderScene(mpRenderContext.get());
+            mpRenderContext->popGraphicsVars();
+          }
+        }
+      }
+    }
+    else
+    {
+      mpRenderContext->pushGraphicsVars(mpVars);
+      mpSceneRenderer->renderScene(mpRenderContext.get());
+      mpRenderContext->popGraphicsVars();
+    }
+
     mpRenderContext->popGraphicsState();
   }
 }

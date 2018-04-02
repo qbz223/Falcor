@@ -71,7 +71,7 @@ float getMipLevel(float3 normal, float3 h, float alpha, float numSamples)
   //TODO this is slow
   gSkybox.GetDimensions(0, width, height, samples);
   float intermediate = (width * height) / (float)numSamples;
-  return (0.5f * log2(intermediate) - 0.5f * log2(d / 4.0f)) + lodBias;
+  return (0.5f * log2(intermediate) - 0.5f * log2(d / 16.0f)) + lodBias;
 }
 
 float3 calcSpecular(float3 r, float3 view, float3 n)
@@ -84,12 +84,12 @@ float3 calcSpecular(float3 r, float3 view, float3 n)
   [unroll(numSamples)]
   for(int i = 0; i < numSamples; ++i)
   {
-    float2 currentPoint = normalize(gRandomPoints[i]);
+    float2 currentPoint = gRandomPoints[i];
     float u = currentPoint.x;
     float v = acos(pow(currentPoint.y, (1.0f / (alpha + 1)))) / kPi;
     float3 dir = sphereCoordsToDir(float2(u, v));
     float3 skewDir = normalize(dir.x * b + dir.y * r + dir.z * a);
-    float3 halfVec = (skewDir + view) / 2.0f;
+    float3 halfVec = normalize(skewDir + view);
     float lod = getMipLevel(n, halfVec, alpha, numSamples);
     float3 skyboxColor = gSkybox.SampleLevel(gSampler, dirToSphereCoords(skewDir), lod).xyz;
 #ifdef USE_TONE_MAPPING
@@ -103,13 +103,12 @@ float3 calcSpecular(float3 r, float3 view, float3 n)
 
 float4 main(VS_OUT vOut) : SV_TARGET
 {
-
   //Diffuse
   float3 dif = gIrradianceMap.Sample(gSampler, dirToSphereCoords(vOut.normalW)).xyz;
-  dif *= (kd / kPi);
 #ifdef USE_TONE_MAPPING
   dif = linearToneMap(dif);
 #endif 
+  dif *= (kd / kPi);
 
   //Specular
   float3 view = normalize(eyePos - vOut.posW);
