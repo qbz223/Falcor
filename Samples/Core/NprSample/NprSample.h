@@ -43,14 +43,32 @@ class NprSample : public Sample
     void onGuiRender() override;
 
   private:
+    const static std::string skDefaultScene;
+    void loadScene(std::string filename);
     Scene::SharedPtr mpScene;
     SceneRenderer::SharedPtr mpSceneRenderer;
-    GraphicsState::SharedPtr mpState;
-    GraphicsVars::SharedPtr mpVars;
+    vec2 mCameraDepthRange = vec2(0.001f, 100.0f);
+
+    struct ColorPass
+    {
+      GraphicsState::SharedPtr pState;
+      GraphicsVars::SharedPtr pVars;
+    } mColorPass;
 
     struct GbufferPass
     {
       GraphicsState::SharedPtr pState;
       GraphicsVars::SharedPtr pVars;
     } mGBuffer;
+
+    enum DebugMode { None = 0, Depth = 1, Normal = 2, Count = 3};
+    const static Gui::DropdownList skDebugModeList;
+    struct DebugControls
+    {
+      DebugMode mode = None;
+      float depthMin = 0.996f;
+      float depthMax = 1.0f;
+      FullScreenPass::UniquePtr pDebugPass;
+      GraphicsVars::SharedPtr pVars;
+    } mDebugControls;
 };

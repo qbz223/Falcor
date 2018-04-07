@@ -27,63 +27,161 @@
 ***************************************************************************/
 #include "NprSample.h"
 
+const std::string NprSample::skDefaultScene = "Scenes/MultiModel.fscene";
+
+const Gui::DropdownList NprSample::skDebugModeList = 
+{
+  { (int32_t)DebugMode::None, "None" },
+  { (int32_t)DebugMode::Depth, "Depth" },
+  { (int32_t)DebugMode::Normal, "Normal" }
+};
+
 void NprSample::onGuiRender()
 {
-  if (mpGui->addButton("Load Scene"))
+  if(mpGui->beginGroup("Scene"))
   {
-    std::string filename;
-    if (openFileDialog("Scene files\0 * .fscene\0\0", filename))
+    if (mpGui->addButton("Load Scene"))
     {
-      mpScene = Scene::loadFromFile(filename);
-      mpSceneRenderer = SceneRenderer::create(mpScene);
-    }
-  }
-
-  if (mpGui->addButton("Load Model"))
-  {
-    std::string filename;
-    if (openFileDialog(Model::kSupportedFileFormatsStr, filename))
-    {
-      auto model = Model::createFromFile(filename.c_str());
-      if (model)
+      std::string filename;
+      if (openFileDialog("Scene files\0 * .fscene\0\0", filename))
       {
-        mpScene->deleteAllModels();
-        mpScene->addModelInstance(model, "MainModel");
+        loadScene(filename);
       }
     }
+
+    if (mpGui->addButton("Load Model"))
+    {
+      std::string filename;
+      if (openFileDialog(Model::kSupportedFileFormatsStr, filename))
+      {
+        auto model = Model::createFromFile(filename.c_str());
+        if (model)
+        {
+          mpScene->deleteAllModels();
+          mpScene->addModelInstance(model, "MainModel");
+        }
+      }
+    }
+
+    if(mpGui->addFloat2Var("Camera Depth Range", mCameraDepthRange, 0.001f, 1000000.0f))
+    {
+      mpScene->getActiveCamera()->setDepthRange(mCameraDepthRange.x, mCameraDepthRange.y);
+    }
+
+    mpGui->endGroup();
+  }
+
+
+  if(mpGui->beginGroup("Debug"))
+  {
+    uint32_t uMode = (uint32_t)mDebugControls.mode;
+    if(mpGui->addDropdown("Mode", skDebugModeList, uMode))
+    {
+      mDebugControls.mode = (DebugMode)uMode;
+      switch(mDebugControls.mode)
+      {
+        mDebugControls.pDebugPass->getProgram()->clearDefines(); 
+        case None:
+          break;
+        case Depth:
+          mDebugControls.pDebugPass->getProgram()->addDefine("_DEPTH");
+          break;
+        case Normal:
+          mDebugControls.pDebugPass->getProgram()->addDefine("_NORMAL");
+          break;
+        default:
+          should_not_get_here();
+      }
+    }
+
+    if(mDebugControls.mode == Depth)
+    {
+      mpGui->addFloatVar("Depth Min", mDebugControls.depthMin, 0.000001f);
+      mpGui->addFloatVar("Depth Max", mDebugControls.depthMax, 1.0f);
+    }
+    mpGui->endGroup();
   }
 }
 
 void NprSample::onLoad()
 {
+  //Default Scene
   mpScene = Scene::create();
-  mpScene->addCamera(Camera::create());
-  mpState = GraphicsState::create();
+  auto defaultCam = Camera::create();
+  defaultCam->setDepthRange(mCameraDepthRange.x, mCameraDepthRange.y);
+  mpScene->addCamera(defaultCam);
+
+  //Color
+  mColorPass.pState = GraphicsState::create();
   auto prog = GraphicsProgram::createFromFile("", "ColorPass.ps.hlsl");
-  mpState->setProgram(prog);
-  mpState->setFbo(mpDefaultFBO);
-  mpVars = GraphicsVars::create(prog->getActiveVersion()->getReflector());
+  mColorPass.pState->setProgram(prog);
+  mColorPass.pState->setFbo(mpDefaultFBO);
+  mColorPass.pVars = GraphicsVars::create(prog->getActiveVersion()->getReflector());
+
+  //Gbuffer
+  auto gBufState = GraphicsState::create();
+  Fbo::Desc gBufDesc;
+  gBufDesc.setColorTarget(0, ResourceFormat::RGBA32Float);
+  gBufDesc.setDepthStencilTarget(ResourceFormat::D32Float);
+  auto gBufFbo = FboHelper::create2D(mpDefaultFBO->getWidth(), mpDefaultFBO->getHeight(), gBufDesc);
+  gBufState->setFbo(gBufFbo);
+  auto gBufPass = GraphicsProgram::createFromFile("", "GBufferPass.ps.hlsl");
+  gBufState->setProgram(gBufPass);
+  mGBuffer.pState = gBufState; 
+  mGBuffer.pVars = GraphicsVars::create(gBufPass->getActiveVersion()->getReflector());
+  
+  //Debug
+  auto debugState = GraphicsState::create();
+  mDebugControls.pDebugPass = FullScreenPass::create("DebugMaps.ps.hlsl");
+  mDebugControls.pVars = GraphicsVars::create(mDebugControls.pDebugPass->getProgram()->getActiveVersion()->getReflector());
+
+  loadScene(skDefaultScene);
 }
 
 void NprSample::onFrameRender()
 {
 	const glm::vec4 clearColor(0.38f, 0.52f, 0.10f, 1);
  	mpRenderContext->clearFbo(mpDefaultFBO.get(), clearColor, 1.0f, 0, FboAttachmentType::All);
+  mpRenderContext->clearFbo(mGBuffer.pState->getFbo().get(), clearColor, 1.0f, 0, FboAttachmentType::All);
+
   if(mpSceneRenderer)
   {
-    //update cb
-    //mVsPerFrame.viewProj = mpScene->getActiveCamera()->getViewProjMatrix();
-    //auto cb = mpVars->getConstantBuffer("VsPerFrame");
-    //cb->setBlob(&mVsPerFrame, 0, sizeof(VsPerFrame));
-
     mpSceneRenderer->update(mCurrentTime);
-    //y tho? (hacks around multiple swapchain error I still dont understand)
-    mpState->setFbo(mpDefaultFBO);
-    mpRenderContext->pushGraphicsState(mpState);
-    mpRenderContext->pushGraphicsVars(mpVars);
+
+    //GBuf Pass
+    mpRenderContext->pushGraphicsState(mGBuffer.pState);
+    mpRenderContext->pushGraphicsVars(mGBuffer.pVars);
     mpSceneRenderer->renderScene(mpRenderContext.get());
     mpRenderContext->popGraphicsVars();
     mpRenderContext->popGraphicsState();
+
+    //Color Pass
+    if(mDebugControls.mode == None)
+    {
+      mColorPass.pState->setFbo(mpDefaultFBO);
+      mpRenderContext->pushGraphicsState(mColorPass.pState);
+      mpRenderContext->pushGraphicsVars(mColorPass.pVars);
+      mpSceneRenderer->renderScene(mpRenderContext.get());
+      mpRenderContext->popGraphicsVars();
+      mpRenderContext->popGraphicsState();
+    }
+    //Debugging
+    else
+    {
+      if(mDebugControls.mode == Depth)
+      {
+        mDebugControls.pVars->getConstantBuffer("PerFrame")->setBlob(&mDebugControls.depthMin, 0, 2 * sizeof(float));
+        mDebugControls.pVars->setTexture("gDebugTex", mGBuffer.pState->getFbo()->getDepthStencilTexture());
+      }
+      else if(mDebugControls.mode == Normal)
+      {
+        mDebugControls.pVars->setTexture("gDebugTex", mGBuffer.pState->getFbo()->getColorTexture(0));
+      }
+
+      mpRenderContext->pushGraphicsVars(mDebugControls.pVars);
+      mDebugControls.pDebugPass->execute(mpRenderContext.get());
+      mpRenderContext->popGraphicsVars();
+    }
   }
 }
 
@@ -117,13 +215,19 @@ void NprSample::onResizeSwapChain()
 {
   if(mpScene)
   {
-    auto pFbo = mpState->getFbo();
-    float width = (float)pFbo->getWidth();
-    float height = (float)pFbo->getHeight();
+    float width = (float)mpDefaultFBO->getWidth();
+    float height = (float)mpDefaultFBO->getHeight();
     auto pCam = mpScene->getActiveCamera();
     pCam->setFocalLength(21.0f);
     pCam->setAspectRatio(width / height);
   }
+}
+
+void NprSample::loadScene(std::string filename)
+{
+  mpScene = Scene::loadFromFile(filename);
+  mpScene->getActiveCamera()->setDepthRange(0.01f, 100.0f);
+  mpSceneRenderer = SceneRenderer::create(mpScene);
 }
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd)
