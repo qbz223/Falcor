@@ -169,7 +169,6 @@ void Illumination::onFrameRender()
     mpState->setFbo(mpDefaultFBO);
 
     mPsPerFrame.eyePos = mpScene->getActiveCamera()->getPosition();
-    mpVars->getConstantBuffer("PsPerFrame")->setBlob(&mPsPerFrame, 0, sizeof(PsPerFrame));
 
     if(mpSkybox)
     {
@@ -220,6 +219,7 @@ void Illumination::onFrameRender()
     }
     else
     {
+      mpVars->getConstantBuffer("PsPerFrame")->setBlob(&mPsPerFrame, 0, sizeof(PsPerFrame));
       mpRenderContext->pushGraphicsVars(mpVars);
       mpSceneRenderer->renderScene(mpRenderContext.get());
       mpRenderContext->popGraphicsVars();

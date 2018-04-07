@@ -71,7 +71,7 @@ float getMipLevel(float3 normal, float3 h, float alpha, float numSamples)
   //TODO this is slow
   gSkybox.GetDimensions(0, width, height, samples);
   float intermediate = (width * height) / (float)numSamples;
-  return (0.5f * log2(intermediate) - 0.5f * log2(d / 16.0f)) + lodBias;
+  return (0.5f * log2(intermediate) - 0.5f * log2(d / 4.f)) + lodBias;
 }
 
 float3 calcSpecular(float3 r, float3 view, float3 n)
