@@ -30,7 +30,7 @@
 
 using namespace Falcor;
 
-class ClassShadows : public Sample
+class NprSample : public Sample
 {
   public:
     void onLoad() override;

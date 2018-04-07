@@ -25,9 +25,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ***************************************************************************/
-#include "ClassShadows.h"
+#include "NprSample.h"
 
-void ClassShadows::onGuiRender()
+void NprSample::onGuiRender()
 {
   if (mpGui->addButton("Load Scene"))
   {
@@ -38,33 +38,34 @@ void ClassShadows::onGuiRender()
       mpSceneRenderer = SceneRenderer::create(mpScene);
     }
   }
-  //if (mpGui->addButton("Load Model"))
-  //{
-  //  std::string filename;
-  //  if (openFileDialog(Model::kSupportedFileFormatsStr, filename))
-  //  {
-  //    auto model = Model::createFromFile(filename.c_str());
-  //    if (model)
-  //    {
-  //      mpScene->deleteAllModels();
-  //      mpScene->addModelInstance(model, "MainModel");
-  //    }
-  //  }
-  //}
+
+  if (mpGui->addButton("Load Model"))
+  {
+    std::string filename;
+    if (openFileDialog(Model::kSupportedFileFormatsStr, filename))
+    {
+      auto model = Model::createFromFile(filename.c_str());
+      if (model)
+      {
+        mpScene->deleteAllModels();
+        mpScene->addModelInstance(model, "MainModel");
+      }
+    }
+  }
 }
 
-void ClassShadows::onLoad()
+void NprSample::onLoad()
 {
   mpScene = Scene::create();
   mpScene->addCamera(Camera::create());
   mpState = GraphicsState::create();
-  auto prog = GraphicsProgram::createFromFile("", "SimpleShadow.ps.hlsl");
+  auto prog = GraphicsProgram::createFromFile("", "ColorPass.ps.hlsl");
   mpState->setProgram(prog);
   mpState->setFbo(mpDefaultFBO);
   mpVars = GraphicsVars::create(prog->getActiveVersion()->getReflector());
 }
 
-void ClassShadows::onFrameRender()
+void NprSample::onFrameRender()
 {
 	const glm::vec4 clearColor(0.38f, 0.52f, 0.10f, 1);
  	mpRenderContext->clearFbo(mpDefaultFBO.get(), clearColor, 1.0f, 0, FboAttachmentType::All);
@@ -86,21 +87,20 @@ void ClassShadows::onFrameRender()
   }
 }
 
-void ClassShadows::onShutdown()
+void NprSample::onShutdown()
 {
 
 }
 
-bool ClassShadows::onKeyEvent(const KeyboardEvent& keyEvent)
+bool NprSample::onKeyEvent(const KeyboardEvent& keyEvent)
 {
-  ///mpSceneRenderer->setCameraControllerType
   if(mpSceneRenderer)
     return mpSceneRenderer->onKeyEvent(keyEvent);
   else
     return false;
 }
 
-bool ClassShadows::onMouseEvent(const MouseEvent& mouseEvent)
+bool NprSample::onMouseEvent(const MouseEvent& mouseEvent)
 {
   if(mpSceneRenderer)
     return mpSceneRenderer->onMouseEvent(mouseEvent);
@@ -108,12 +108,12 @@ bool ClassShadows::onMouseEvent(const MouseEvent& mouseEvent)
     return false;
 }
 
-void ClassShadows::onDataReload()
+void NprSample::onDataReload()
 {
 
 }
 
-void ClassShadows::onResizeSwapChain()
+void NprSample::onResizeSwapChain()
 {
   if(mpScene)
   {
@@ -128,7 +128,7 @@ void ClassShadows::onResizeSwapChain()
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd)
 {
-    ClassShadows sample;
+    NprSample sample;
     SampleConfig config;
     config.windowDesc.title = "Falcor Project Template";
     config.windowDesc.resizableWindow = true;
