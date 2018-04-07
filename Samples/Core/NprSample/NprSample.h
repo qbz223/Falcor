@@ -48,9 +48,9 @@ class NprSample : public Sample
     GraphicsState::SharedPtr mpState;
     GraphicsVars::SharedPtr mpVars;
 
-    struct VsPerFrame
+    struct GbufferPass
     {
-      mat4 world = glm::mat4();
-      mat4 viewProj = glm::mat4();
-    } mVsPerFrame;
+      GraphicsState::SharedPtr pState;
+      GraphicsVars::SharedPtr pVars;
+    } mGBuffer;
 };
