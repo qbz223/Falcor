@@ -10,11 +10,22 @@ cbuffer PerFrame
 };
 
 static const int kNumSamples = 8;
+#ifdef _PREWITT
+static const int2 weights[kNumSamples] = {
+  int2(-1, -1), int2(0, -1), int2(1, -1),
+  int2(-1, 0), int2(1, 0),
+  int2(-1, 1), int2(0, 1), int2(1, 1) };
+#elif defined _SCHARR
+static const int2 weights[kNumSamples] = {
+  int2(3, 3), int2(0, 10), int2(-3, 3),
+  int2(10, 0), int2(-10, 0),
+  int2(3, -3), int2(0, -10), int2(-3, -3) };
+#else //sobel
 static const int2 weights[kNumSamples] = {
   int2(-1, 1), int2(0, 2), int2(1, 1),
-  int2(-2, 0), int2(2, 0), 
-  int2(-1, -1), int2(0, -2), int2(1, -1)};
-
+  int2(-2, 0), int2(2, 0),
+  int2(-1, -1), int2(0, -2), int2(1, -1) };
+#endif
 static const int2 offsets[kNumSamples] = {
   int2(-1, -1), int2(0, -1), int2(1, -1),
   int2(-1, 0), int2(1, 0),

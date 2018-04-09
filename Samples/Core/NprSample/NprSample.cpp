@@ -36,6 +36,13 @@ const Gui::DropdownList NprSample::skDebugModeList =
   { (int32_t)DebugMode::Normal, "Normal" }
 };
 
+const Gui::DropdownList NprSample::skImageOperatorList =
+{
+  { (int32_t)ImageOperator::Sobel, "Sobel" },
+  { (int32_t)ImageOperator::Prewitt, "Prewitt" },
+  { (int32_t)ImageOperator::Scharr, "Scharr" }
+};
+
 void NprSample::onGuiRender()
 {
   if(mpGui->beginGroup("Scene"))
@@ -73,28 +80,52 @@ void NprSample::onGuiRender()
 
   if(mpGui->beginGroup("Edge Pass"))
   {
+    uint32_t uImageOp = (uint32_t)mImagePass.imageOp;
+    if(mpGui->addDropdown("Operator", skImageOperatorList, uImageOp))
+    {
+      mImagePass.imageOp = (ImageOperator)uImageOp;
+      auto pProg = mImagePass.pPass->getProgram();
+      pProg->clearDefines();
+      switch(mImagePass.imageOp)
+      {
+        case Sobel:
+          break;
+        case Prewitt:
+          pProg->addDefine("_PREWITT");
+          break;
+        case Scharr:
+          pProg->addDefine("_SCHARR");
+          break;
+        default:
+          should_not_get_here();
+      }
+    }
+
     mpGui->addFloatVar("Normal Threshold", mImagePassData.normalThreshold, 0);
     float shownDepthThreshold = mImagePassData.depthThreshold / mImagePass.depthScale;
     mpGui->addFloatVar("Depth Threshold", shownDepthThreshold, 0);
     mImagePassData.depthThreshold = shownDepthThreshold * mImagePass.depthScale;
+
+    mpGui->endGroup();
   }
 
   if(mpGui->beginGroup("Debug"))
   {
-    uint32_t uMode = (uint32_t)mDebugControls.mode;
-    if(mpGui->addDropdown("Mode", skDebugModeList, uMode))
+    uint32_t uDebugMode = (uint32_t)mDebugControls.mode;
+    if(mpGui->addDropdown("Mode", skDebugModeList, uDebugMode))
     {
-      mDebugControls.mode = (DebugMode)uMode;
-      mDebugControls.pDebugPass->getProgram()->clearDefines();
+      mDebugControls.mode = (DebugMode)uDebugMode;
+      auto pProg = mDebugControls.pDebugPass->getProgram();
+      pProg->clearDefines();
       switch(mDebugControls.mode)
       {
         case None:
           break;
         case Depth:
-          mDebugControls.pDebugPass->getProgram()->addDefine("_DEPTH");
+          pProg->addDefine("_DEPTH");
           break;
         case Normal:
-          mDebugControls.pDebugPass->getProgram()->addDefine("_NORMAL");
+          pProg->addDefine("_NORMAL");
           break;
         default:
           should_not_get_here();

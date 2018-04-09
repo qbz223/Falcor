@@ -61,10 +61,13 @@ class NprSample : public Sample
       GraphicsVars::SharedPtr pVars;
     } mGBuffer;
 
+    enum ImageOperator { Sobel = 0, Prewitt = 1, Scharr = 2, ImageOpCount = 3 };
+    const static Gui::DropdownList skImageOperatorList;
     struct ImageOperatorPass
     {
       FullScreenPass::UniquePtr pPass;
       GraphicsVars::SharedPtr pVars;
+      ImageOperator imageOp;
       //for convenience. Actual depth is entered depth * scale
       //depth range is really small, lets you work in more reasonable #'s
       const float depthScale = .001f;
@@ -77,7 +80,7 @@ class NprSample : public Sample
       float depthThreshold = 0.001f;
     } mImagePassData;
 
-    enum DebugMode { None = 0, Depth = 1, Normal = 2, Count = 3};
+    enum DebugMode { None = 0, Depth = 1, Normal = 2, DebugModeCount = 3};
     const static Gui::DropdownList skDebugModeList;
     struct DebugControls
     {
