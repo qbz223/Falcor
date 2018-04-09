@@ -78,9 +78,9 @@ void NprSample::onGuiRender()
     if(mpGui->addDropdown("Mode", skDebugModeList, uMode))
     {
       mDebugControls.mode = (DebugMode)uMode;
+      mDebugControls.pDebugPass->getProgram()->clearDefines();
       switch(mDebugControls.mode)
       {
-        mDebugControls.pDebugPass->getProgram()->clearDefines(); 
         case None:
           break;
         case Depth:
@@ -130,8 +130,11 @@ void NprSample::onLoad()
   mGBuffer.pState = gBufState; 
   mGBuffer.pVars = GraphicsVars::create(gBufPass->getActiveVersion()->getReflector());
   
+  //Image Operator
+  mImagePass.pPass = FullScreenPass::create("ImageOperatorPass.ps.hlsl");
+  mImagePass.pVars = GraphicsVars::create(mImagePass.pPass->getProgram()->getActiveVersion()->getReflector());
+
   //Debug
-  auto debugState = GraphicsState::create();
   mDebugControls.pDebugPass = FullScreenPass::create("DebugMaps.ps.hlsl");
   mDebugControls.pVars = GraphicsVars::create(mDebugControls.pDebugPass->getProgram()->getActiveVersion()->getReflector());
 
@@ -154,16 +157,19 @@ void NprSample::onFrameRender()
     mpSceneRenderer->renderScene(mpRenderContext.get());
     mpRenderContext->popGraphicsVars();
     mpRenderContext->popGraphicsState();
+    
+    auto gBuffer = mGBuffer.pState->getFbo();
+    auto normalTex = gBuffer->getColorTexture(0);
+    auto depthTex = gBuffer->getDepthStencilTexture();
 
     //Color Pass
     if(mDebugControls.mode == None)
     {
-      mColorPass.pState->setFbo(mpDefaultFBO);
-      mpRenderContext->pushGraphicsState(mColorPass.pState);
-      mpRenderContext->pushGraphicsVars(mColorPass.pVars);
-      mpSceneRenderer->renderScene(mpRenderContext.get());
+      mImagePass.pVars->setTexture("gDepth", depthTex);
+      mImagePass.pVars->setTexture("gNormal", normalTex);
+      mpRenderContext->pushGraphicsVars(mImagePass.pVars);
+      mImagePass.pPass->execute(mpRenderContext.get());
       mpRenderContext->popGraphicsVars();
-      mpRenderContext->popGraphicsState();
     }
     //Debugging
     else
@@ -228,6 +234,7 @@ void NprSample::loadScene(std::string filename)
   mpScene = Scene::loadFromFile(filename);
   mpScene->getActiveCamera()->setDepthRange(0.01f, 100.0f);
   mpSceneRenderer = SceneRenderer::create(mpScene);
+  onResizeSwapChain();
 }
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd)

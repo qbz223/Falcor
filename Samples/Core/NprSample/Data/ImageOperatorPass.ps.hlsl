@@ -1,0 +1,40 @@
+SamplerState gSampler;
+Texture2D gDepth;
+Texture2D gNormal;
+
+static const int kNumSamples = 8;
+static const int2 weights[kNumSamples] = {
+  int2(-1, 1), int2(0, 2), int2(1, 1),
+  int2(-2, 0), int2(2, 0), 
+  int2(-1, -1), int2(0, -2), int2(1, -1)};
+
+static const int2 offsets[kNumSamples] = {
+  int2(-1, -1), int2(0, -1), int2(1, -1),
+  int2(-1, 0), int2(1, 0),
+  int2(-1, 1), int2(0, 1), int2(1, 1)};
+
+float4 main(float2 texC : TEXCOORD) : SV_TARGET
+{
+  float2 depthGradient = float2(0, 0);
+  float2 normalGradient = float2(0, 0);
+
+  int2 dim;
+  gDepth.GetDimensions(dim.x, dim.y);
+  int2 iCoords = texC * dim;
+  [unroll(kNumSamples)]
+  for(int i = 0; i < kNumSamples; ++i)
+  {
+    int2 sampleCoords = iCoords + offsets[i];
+    float3 normalSample = gNormal[sampleCoords].xyz;
+    float depthSample = gDepth[sampleCoords].x;
+    int2 weight = weights[i];
+    normalGradient += dot(normalSample, float3(1, 1, 1)) * weight;
+    depthGradient += depthSample * weight;
+  }
+
+  float normalMagnitude = sqrt(normalGradient.x * normalGradient.x + normalGradient.y * normalGradient.y);
+  float depthMagnitude = sqrt(depthGradient.x * depthGradient.x + depthGradient.y * depthGradient.y);
+
+  int edge = (normalMagnitude > 25.0f) || (depthMagnitude > 0.0001f);
+  return float4(!edge.xxx, 1.0f);
+}

@@ -61,6 +61,12 @@ class NprSample : public Sample
       GraphicsVars::SharedPtr pVars;
     } mGBuffer;
 
+    struct ImageOperatorPass
+    {
+      FullScreenPass::UniquePtr pPass;
+      GraphicsVars::SharedPtr pVars;
+    } mImagePass;
+
     enum DebugMode { None = 0, Depth = 1, Normal = 2, Count = 3};
     const static Gui::DropdownList skDebugModeList;
     struct DebugControls
