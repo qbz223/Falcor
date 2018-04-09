@@ -71,6 +71,13 @@ void NprSample::onGuiRender()
     mpGui->endGroup();
   }
 
+  if(mpGui->beginGroup("Edge Pass"))
+  {
+    mpGui->addFloatVar("Normal Threshold", mImagePassData.normalThreshold, 0);
+    float shownDepthThreshold = mImagePassData.depthThreshold / mImagePass.depthScale;
+    mpGui->addFloatVar("Depth Threshold", shownDepthThreshold, 0);
+    mImagePassData.depthThreshold = shownDepthThreshold * mImagePass.depthScale;
+  }
 
   if(mpGui->beginGroup("Debug"))
   {
@@ -162,9 +169,12 @@ void NprSample::onFrameRender()
     auto normalTex = gBuffer->getColorTexture(0);
     auto depthTex = gBuffer->getDepthStencilTexture();
 
-    //Color Pass
+    //Edge Pass
     if(mDebugControls.mode == None)
     {
+      mImagePassData.textureDimensions.x = mpDefaultFBO->getWidth();
+      mImagePassData.textureDimensions.y = mpDefaultFBO->getHeight();
+      mImagePass.pVars->getConstantBuffer("PerFrame")->setBlob(&mImagePassData, 0, sizeof(ImageOperatorPassData));
       mImagePass.pVars->setTexture("gDepth", depthTex);
       mImagePass.pVars->setTexture("gNormal", normalTex);
       mpRenderContext->pushGraphicsVars(mImagePass.pVars);

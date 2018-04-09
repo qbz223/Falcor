@@ -65,7 +65,17 @@ class NprSample : public Sample
     {
       FullScreenPass::UniquePtr pPass;
       GraphicsVars::SharedPtr pVars;
+      //for convenience. Actual depth is entered depth * scale
+      //depth range is really small, lets you work in more reasonable #'s
+      const float depthScale = .001f;
     } mImagePass;
+
+    struct ImageOperatorPassData
+    {
+      glm::int2 textureDimensions;
+      float normalThreshold = 25.0f;
+      float depthThreshold = 0.001f;
+    } mImagePassData;
 
     enum DebugMode { None = 0, Depth = 1, Normal = 2, Count = 3};
     const static Gui::DropdownList skDebugModeList;

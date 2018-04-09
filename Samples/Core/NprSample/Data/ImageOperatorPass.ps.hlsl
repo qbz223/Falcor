@@ -2,6 +2,13 @@ SamplerState gSampler;
 Texture2D gDepth;
 Texture2D gNormal;
 
+cbuffer PerFrame
+{
+  int2 textureDimensions;
+  float normalThreshold;
+  float depthThreshold;
+};
+
 static const int kNumSamples = 8;
 static const int2 weights[kNumSamples] = {
   int2(-1, 1), int2(0, 2), int2(1, 1),
@@ -18,9 +25,7 @@ float4 main(float2 texC : TEXCOORD) : SV_TARGET
   float2 depthGradient = float2(0, 0);
   float2 normalGradient = float2(0, 0);
 
-  int2 dim;
-  gDepth.GetDimensions(dim.x, dim.y);
-  int2 iCoords = texC * dim;
+  int2 iCoords = texC * textureDimensions;
   [unroll(kNumSamples)]
   for(int i = 0; i < kNumSamples; ++i)
   {
@@ -35,6 +40,6 @@ float4 main(float2 texC : TEXCOORD) : SV_TARGET
   float normalMagnitude = sqrt(normalGradient.x * normalGradient.x + normalGradient.y * normalGradient.y);
   float depthMagnitude = sqrt(depthGradient.x * depthGradient.x + depthGradient.y * depthGradient.y);
 
-  int edge = (normalMagnitude > 25.0f) || (depthMagnitude > 0.0001f);
+  int edge = (normalMagnitude > normalThreshold) || (depthMagnitude > depthThreshold);
   return float4(!edge.xxx, 1.0f);
 }
