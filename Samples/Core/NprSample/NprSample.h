@@ -27,6 +27,7 @@
 ***************************************************************************/
 #pragma once
 #include "Falcor.h"
+#include "NprSceneRenderer.hpp"
 
 using namespace Falcor;
 
@@ -45,8 +46,9 @@ class NprSample : public Sample
   private:
     const static std::string skDefaultScene;
     void loadScene(std::string filename);
+    void createAndSetGBufferFbo();
     Scene::SharedPtr mpScene;
-    SceneRenderer::SharedPtr mpSceneRenderer;
+    NprSceneRenderer::UniquePtr mpSceneRenderer;
     vec2 mCameraDepthRange = vec2(0.001f, 100.0f);
 
     struct ColorPass

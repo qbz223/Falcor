@@ -15,6 +15,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="NprSample.h" />
+    <ClInclude Include="NprSceneRenderer.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\Framework\Source\Falcor.vcxproj">

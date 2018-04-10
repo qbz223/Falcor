@@ -10,6 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="NprSample.h" />
+    <ClInclude Include="NprSceneRenderer.hpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Data\ColorPass.ps.hlsl">

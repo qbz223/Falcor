@@ -1,7 +1,14 @@
 __import DefaultVS;
+__import ShaderCommon;
+__import Shading;
+__import Helpers;
 
 float4 main(VS_OUT vOut) : SV_TARGET
 {
-  float nDotL = dot(vOut.normalW, float3(0.25f, 0.5f, 0.75f));
+  ShadingAttribs attr;
+  attr.lodBias = 0;
+  attr.UV = vOut.texC;
+  applyAlphaTest(gMaterial, attr, vOut.posW);
+
   return float4(vOut.normalW, 1.0f);
 }

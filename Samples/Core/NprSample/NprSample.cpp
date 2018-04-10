@@ -158,14 +158,10 @@ void NprSample::onLoad()
 
   //Gbuffer
   auto gBufState = GraphicsState::create();
-  Fbo::Desc gBufDesc;
-  gBufDesc.setColorTarget(0, ResourceFormat::RGBA32Float);
-  gBufDesc.setDepthStencilTarget(ResourceFormat::D32Float);
-  auto gBufFbo = FboHelper::create2D(mpDefaultFBO->getWidth(), mpDefaultFBO->getHeight(), gBufDesc);
-  gBufState->setFbo(gBufFbo);
   auto gBufPass = GraphicsProgram::createFromFile("", "GBufferPass.ps.hlsl");
   gBufState->setProgram(gBufPass);
   mGBuffer.pState = gBufState; 
+  createAndSetGBufferFbo();
   mGBuffer.pVars = GraphicsVars::create(gBufPass->getActiveVersion()->getReflector());
   
   //Image Operator
@@ -267,6 +263,9 @@ void NprSample::onResizeSwapChain()
     auto pCam = mpScene->getActiveCamera();
     pCam->setFocalLength(21.0f);
     pCam->setAspectRatio(width / height);
+
+    //Recreate gbuffer with proper window dimensions
+    createAndSetGBufferFbo();
   }
 }
 
@@ -274,8 +273,17 @@ void NprSample::loadScene(std::string filename)
 {
   mpScene = Scene::loadFromFile(filename);
   mpScene->getActiveCamera()->setDepthRange(0.01f, 100.0f);
-  mpSceneRenderer = SceneRenderer::create(mpScene);
+  mpSceneRenderer = NprSceneRenderer::create(mpScene);
   onResizeSwapChain();
+}
+
+void NprSample::createAndSetGBufferFbo()
+{
+  Fbo::Desc gBufDesc;
+  gBufDesc.setColorTarget(0, ResourceFormat::RGBA32Float);
+  gBufDesc.setDepthStencilTarget(ResourceFormat::D32Float);
+  auto pFbo = FboHelper::create2D(mpDefaultFBO->getWidth(), mpDefaultFBO->getHeight(), gBufDesc);
+  mGBuffer.pState->setFbo(pFbo);
 }
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd)
