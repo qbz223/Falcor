@@ -168,6 +168,13 @@ void NprSample::onLoad()
   mImagePass.pPass = FullScreenPass::create("ImageOperatorPass.ps.hlsl");
   mImagePass.pVars = GraphicsVars::create(mImagePass.pPass->getProgram()->getActiveVersion()->getReflector());
 
+  //Geometry Based Edge Detection
+  mGeoEdgePass.pState = GraphicsState::create();
+  auto geoEdgeProg = GraphicsProgram::createFromFile("", "EdgeRender.ps.hlsl", "EdgeDetect.gs.hlsl", "", "");
+  mGeoEdgePass.pState->setProgram(geoEdgeProg);
+  mGeoEdgePass.pState->setFbo(mpDefaultFBO);
+  mGeoEdgePass.pVars = GraphicsVars::create(geoEdgeProg->getActiveVersion()->getReflector());
+
   //Debug
   mDebugControls.pDebugPass = FullScreenPass::create("DebugMaps.ps.hlsl");
   mDebugControls.pVars = GraphicsVars::create(mDebugControls.pDebugPass->getProgram()->getActiveVersion()->getReflector());
@@ -199,14 +206,22 @@ void NprSample::onFrameRender()
     //Edge Pass
     if(mDebugControls.mode == None)
     {
-      mImagePassData.textureDimensions.x = mpDefaultFBO->getWidth();
-      mImagePassData.textureDimensions.y = mpDefaultFBO->getHeight();
-      mImagePass.pVars->getConstantBuffer("PerFrame")->setBlob(&mImagePassData, 0, sizeof(ImageOperatorPassData));
-      mImagePass.pVars->setTexture("gDepth", depthTex);
-      mImagePass.pVars->setTexture("gNormal", normalTex);
-      mpRenderContext->pushGraphicsVars(mImagePass.pVars);
-      mImagePass.pPass->execute(mpRenderContext.get());
+      //mImagePassData.textureDimensions.x = mpDefaultFBO->getWidth();
+      //mImagePassData.textureDimensions.y = mpDefaultFBO->getHeight();
+      //mImagePass.pVars->getConstantBuffer("PerFrame")->setBlob(&mImagePassData, 0, sizeof(ImageOperatorPassData));
+      //mImagePass.pVars->setTexture("gDepth", depthTex);
+      //mImagePass.pVars->setTexture("gNormal", normalTex);
+      //mpRenderContext->pushGraphicsVars(mImagePass.pVars);
+      //mImagePass.pPass->execute(mpRenderContext.get());
+      //mpRenderContext->popGraphicsVars();
+
+      mGeoEdgePass.pVars->getConstantBuffer("GsPerFrame")->setBlob(&mGeoEdgePass.edgeLength, 0, sizeof(float));
+      mGeoEdgePass.pState->setFbo(mpDefaultFBO);
+      mpRenderContext->pushGraphicsState(mGeoEdgePass.pState);
+      mpRenderContext->pushGraphicsVars(mGeoEdgePass.pVars);
+      mpSceneRenderer->renderScene(mpRenderContext.get());
       mpRenderContext->popGraphicsVars();
+      mpRenderContext->popGraphicsState();
     }
     //Debugging
     else

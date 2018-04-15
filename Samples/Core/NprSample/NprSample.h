@@ -82,6 +82,13 @@ class NprSample : public Sample
       float depthThreshold = 0.001f;
     } mImagePassData;
 
+    struct GeometryEdgePass
+    {
+      GraphicsState::SharedPtr pState;
+      GraphicsVars::SharedPtr pVars;
+      float edgeLength = 1.0f;
+    } mGeoEdgePass;
+
     enum DebugMode { None = 0, Depth = 1, Normal = 2, DebugModeCount = 3};
     const static Gui::DropdownList skDebugModeList;
     struct DebugControls

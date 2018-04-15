@@ -25,5 +25,11 @@
     <FxCompile Include="Data\ImageOperatorPass.ps.hlsl">
       <Filter>Data</Filter>
     </FxCompile>
+    <FxCompile Include="Data\EdgeDetect.gs.hlsl">
+      <Filter>Data</Filter>
+    </FxCompile>
+    <FxCompile Include="Data\EdgeRender.ps.hlsl">
+      <Filter>Data</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
