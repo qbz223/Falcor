@@ -44,6 +44,10 @@
 #include <numeric>
 #include <cstring>
 
+//So i can hash an int2
+#define GLM_ENABLE_EXPERIMENTAL1
+#include <glm/gtx/hash.hpp>
+
 namespace Falcor
 {
     struct TextureData
@@ -894,49 +898,91 @@ namespace Falcor
                 uint32_t ibSize = 3 * numTriangles * sizeof(uint32_t);
                 mStream.read(&indices[0], ibSize);
 
-                auto pIB = Buffer::create(ibSize, Buffer::BindFlags::Index, Buffer::CpuAccess::None, indices.data());
-
                 // Generate tangent space data if needed
-                if(genTangentForMesh)
+                if (genTangentForMesh)
                 {
-                    uint32_t texCrdCount = 0;
-                    glm::vec2* texCrd = nullptr;
-                    if(texCoordBufferIndex != kInvalidBufferIndex)
-                    {
-                        texCrdCount = pLayout->getBufferLayout(texCoordBufferIndex)->getStride() / sizeof(glm::vec2);
-                        texCrd = (glm::vec2*)buffers[texCoordBufferIndex].vec.data();
-                    }
+                  uint32_t texCrdCount = 0;
+                  glm::vec2* texCrd = nullptr;
+                  if (texCoordBufferIndex != kInvalidBufferIndex)
+                  {
+                    texCrdCount = pLayout->getBufferLayout(texCoordBufferIndex)->getStride() / sizeof(glm::vec2);
+                    texCrd = (glm::vec2*)buffers[texCoordBufferIndex].vec.data();
+                  }
 
-                    ResourceFormat posFormat = pLayout->getBufferLayout(positionBufferIndex)->getElementFormat(0);
+                  ResourceFormat posFormat = pLayout->getBufferLayout(positionBufferIndex)->getElementFormat(0);
 
-                    if (posFormat == ResourceFormat::RGB32Float)
-                    {
-                        generateSubmeshTangentData<glm::vec3>(indices, numVertices, (glm::vec3*)buffers[positionBufferIndex].vec.data(), (glm::vec3*)buffers[normalBufferIndex].vec.data(), texCrd, texCrdCount, (glm::vec3*)buffers[bitangentBufferIndex].vec.data());
-                    }
-                    else if (posFormat == ResourceFormat::RGBA32Float)
-                    {
-                        generateSubmeshTangentData<glm::vec4>(indices, numVertices, (glm::vec4*)buffers[positionBufferIndex].vec.data(), (glm::vec3*)buffers[normalBufferIndex].vec.data(), texCrd, texCrdCount, (glm::vec3*)buffers[bitangentBufferIndex].vec.data());
-                    }
+                  if (posFormat == ResourceFormat::RGB32Float)
+                  {
+                    generateSubmeshTangentData<glm::vec3>(indices, numVertices, (glm::vec3*)buffers[positionBufferIndex].vec.data(), (glm::vec3*)buffers[normalBufferIndex].vec.data(), texCrd, texCrdCount, (glm::vec3*)buffers[bitangentBufferIndex].vec.data());
+                  }
+                  else if (posFormat == ResourceFormat::RGBA32Float)
+                  {
+                    generateSubmeshTangentData<glm::vec4>(indices, numVertices, (glm::vec4*)buffers[positionBufferIndex].vec.data(), (glm::vec3*)buffers[normalBufferIndex].vec.data(), texCrd, texCrdCount, (glm::vec3*)buffers[bitangentBufferIndex].vec.data());
+                  }
 
-                    pVBs[bitangentBufferIndex] = Buffer::create(buffers[bitangentBufferIndex].vec.size(), Buffer::BindFlags::Vertex, Buffer::CpuAccess::None, buffers[bitangentBufferIndex].vec.data());
+                  pVBs[bitangentBufferIndex] = Buffer::create(buffers[bitangentBufferIndex].vec.size(), Buffer::BindFlags::Vertex, Buffer::CpuAccess::None, buffers[bitangentBufferIndex].vec.data());
                 }
-                
 
                 // Calculate the bounding-box
                 glm::vec3 max, min;
-                for(uint32_t i = 0; i < numIndices; i++)
+                for (uint32_t i = 0; i < numIndices; i++)
                 {
-                    uint32_t vertexID = indices[i];
-                    uint8_t* pVertex = (pLayout->getBufferLayout(positionBufferIndex)->getStride() * vertexID) + buffers[positionBufferIndex].vec.data();
+                  uint32_t vertexID = indices[i];
+                  uint8_t* pVertex = (pLayout->getBufferLayout(positionBufferIndex)->getStride() * vertexID) + buffers[positionBufferIndex].vec.data();
 
-                    float* pPosition = (float*)pVertex;
+                  float* pPosition = (float*)pVertex;
 
-                    glm::vec3 xyz(pPosition[0], pPosition[1], pPosition[2]);
-                    min = glm::min(min, xyz);
-                    max = glm::max(max, xyz);
+                  glm::vec3 xyz(pPosition[0], pPosition[1], pPosition[2]);
+                  min = glm::min(min, xyz);
+                  max = glm::max(max, xyz);
+                }
+                BoundingBox box = BoundingBox::fromMinMax(min, max);
+
+                //Generate Adjacency information if required
+                if (is_set(Model::LoadFlags::GenerateAdjacency, flags))
+                {
+                  //Determine half edges
+                  std::unordered_map<int2, int> halfEdges = std::unordered_map<int2, int>();
+                  for(uint32_t i = 0; i < numIndices; i += 3)
+                  {
+                    int p0 = indices[i];
+                    int p1 = indices[i + 1];
+                    int p2 = indices[i + 2];
+
+                    halfEdges.insert(std::make_pair(int2(p0, p1), p2));
+                    halfEdges.insert(std::make_pair(int2(p1, p2), p0));
+                    halfEdges.insert(std::make_pair(int2(p2, p0), p1));         
+                  }
+
+                  //save adjacncy indices
+                  std::vector<uint32_t> adjIndices(2 * numIndices);
+                  for (uint32_t i = 0; i < numIndices; i += 3)
+                  {
+                    uint32_t adjStartIndex = 2 * i;
+                    uint32_t p0 = indices[i];
+                    uint32_t p1 = indices[i + 1];
+                    uint32_t p2 = indices[i + 2];
+                    int2 e0 = int2(p1, p0);
+                    int2 e1 = int2(p2, p1);
+                    int2 e2 = int2(p0, p2);
+
+                    auto adjP0 = halfEdges.find(e0);
+                    auto adjP1 = halfEdges.find(e1);
+                    auto adjP2 = halfEdges.find(e2);
+                    adjIndices[adjStartIndex] = p0;
+                    adjIndices[adjStartIndex + 1] = adjP0 == halfEdges.end() ? -1 : adjP0->second;
+                    adjIndices[adjStartIndex + 2] = p1;
+                    adjIndices[adjStartIndex + 3] = adjP1 == halfEdges.end() ? -1 : adjP1->second;
+                    adjIndices[adjStartIndex + 4] = p2;
+                    adjIndices[adjStartIndex + 5] = adjP2 == halfEdges.end() ? -1 : adjP2->second;
+                  }
+
+                  indices = adjIndices;
+                  ibSize *= 2;
+                  numIndices *= 2;
                 }
 
-                BoundingBox box = BoundingBox::fromMinMax(min, max);
+                auto pIB = Buffer::create(ibSize, Buffer::BindFlags::Index, Buffer::CpuAccess::None, indices.data());
 
                 // create the mesh
                 auto pMesh = Mesh::create(pVBs, numVertices, pIB, numIndices, pLayout, Vao::Topology::TriangleList, pMaterial, box, false);

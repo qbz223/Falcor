@@ -86,7 +86,7 @@ class NprSample : public Sample
     {
       GraphicsState::SharedPtr pState;
       GraphicsVars::SharedPtr pVars;
-      float edgeLength = 1.0f;
+      float edgeLength = 0.1f;
     } mGeoEdgePass;
 
     enum DebugMode { None = 0, Depth = 1, Normal = 2, DebugModeCount = 3};

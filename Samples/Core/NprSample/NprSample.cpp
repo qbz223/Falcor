@@ -286,7 +286,7 @@ void NprSample::onResizeSwapChain()
 
 void NprSample::loadScene(std::string filename)
 {
-  mpScene = Scene::loadFromFile(filename);
+  mpScene = Scene::loadFromFile(filename, Model::LoadFlags::GenerateAdjacency | Model::LoadFlags::DontGenerateTangentSpace);
   mpScene->getActiveCamera()->setDepthRange(0.01f, 100.0f);
   mpSceneRenderer = NprSceneRenderer::create(mpScene);
   onResizeSwapChain();

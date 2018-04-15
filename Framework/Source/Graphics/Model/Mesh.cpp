@@ -81,6 +81,7 @@ namespace Falcor
             VertsPerPrim = 2;
             break;
         case Vao::Topology::TriangleList:
+        case Vao::Topology::TriangleListAdj:
             VertsPerPrim = 3;
             break;
         default:
