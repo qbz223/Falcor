@@ -12,6 +12,10 @@ struct GsOut
 cbuffer GsPerFrame
 {
   float edgeLength;
+  float creaseThreshold;
+  float facingBias;
+  float zBias;
+  float3 ssCenter;
 }
 
 float3 getFaceNormal(float3 a, float3 b, float3 c)
@@ -22,50 +26,80 @@ float3 getFaceNormal(float3 a, float3 b, float3 c)
   return normalize(cross(edge0, edge1));
 }
 
+//Based on House Edge Detection Thesis 2010
+void extrudeEdgeCap(inout TriangleStream<GsOut> outStream, float3 v, float3 n, float4 s, float4 s1, float p)
+{
+  float2 dim = float2(1920, 1080);
+  float4 temp = mul(float4(v + n, 1.0f), gCam.viewProjMat);
+  temp.xy = (temp.xy / temp.w) * dim;
+  float2 m = normalize(temp.xy - (s.xy * dim));
+  float4 capVert = float4(((s * dim) + p * sign(dot(m, p))) / dim * s.w, s.zw);
+  GsOut output;
+  output.posH = s;
+  output.normalW = n;
+  output.color = float4(0, 0, 0, 1);
+  outStream.Append(output);
+  output.posH = capVert;
+  outStream.Append(output);
+  output.posH = s1;//s + 0.01f * float4(m, 0, 0);
+  outStream.Append(output);
+  outStream.RestartStrip();
+}
+
 void extrudeEdge(inout TriangleStream<GsOut> outStream, float3 aPos, float3 aNorm, float3 bPos, float3 bNorm)
 {
-  float3 edgeVerts[4];
-  edgeVerts[0] = aPos;
-  float realEdgeLength = 0.0001f;
-  edgeVerts[1] = aPos + aNorm * realEdgeLength;
-  edgeVerts[2] = bPos;
-  edgeVerts[3] = bPos + bNorm * realEdgeLength;
+  float aSideVec = 0.5f * aNorm * edgeLength;
+  float bSideVec = 0.5f * bNorm * edgeLength;
+  float4 edgeVerts[4] = {//float4 so can store posH
+    float4(aPos - aSideVec, 0), float4(aPos + aSideVec, 0),
+    float4(bPos - bSideVec, 0), float4(bPos + bSideVec, 0) };
+
+  [unroll(4)]
   for(uint i = 0; i < 4; ++i)
   {
     GsOut output;
-    float4 view = mul(float4(edgeVerts[i], 1.0f), gCam.viewMat);
-    view.z -= 0.01f;
+    float4 view = mul(float4(edgeVerts[i].xyz, 1.0f), gCam.viewMat);
+    view.z -= zBias;
     output.posH = mul(view, gCam.projMat);
+    //Save posH into edge verts to use for edge caps
+    edgeVerts[i] = output.posH;
     output.normalW = i < 2 ? aNorm : bNorm;
     output.color = float4(0, 0, 0, 1);
     outStream.Append(output);
   }
   outStream.RestartStrip();
+
+  //Artifacts this is meant to fix aren't even significant on the scenes im using 
+  //Having issues with this, try to get it at the end, theres other stuff i want more 
+  //float2 p = 2.f * normalize(float2(edgeVerts[0].y - edgeVerts[2].y, edgeVerts[2].x - edgeVerts[0].x));
+  //float3 aSSNorm = mul(aNorm, (float3x3)gCam.viewProjMat);
+  //float3 bSSNorm = mul(bNorm, (float3x3)gCam.viewProjMat);
+  //extrudeEdgeCap(outStream, aPos, aSSNorm, edgeVerts[0], edgeVerts[1], p);
+  //extrudeEdgeCap(outStream, bPos, bSSNorm, edgeVerts[2], edgeVerts[3], p);
 }
 
 void checkAdjacentTri(inout TriangleStream<GsOut> outStream, 
   float3 a, float3 b, float3 c, float3 centerNorm, float3 bNorm, float3 cNorm)
 {
-  const float bias = 0.0001f;
   float3 faceNorm = getFaceNormal(a, b, c);
   //Todo centroid?
   float3 view = normalize(-gCam.position + a);
-  if(dot(faceNorm, view) >= bias)
+  if(dot(faceNorm, view) >= facingBias)
   {
     extrudeEdge(outStream, c, cNorm, b, bNorm);
   }
   else
   {
     float between = dot(faceNorm, centerNorm);
-    if(between < 0.85f)
+    if(between < creaseThreshold)
     {
       extrudeEdge(outStream, c, cNorm, b, bNorm);
     }
   }
 }
 
-//3 for main tri. each edge can create up to 4 verts
-[maxvertexcount(15)]
+//3 for main tri. each edge is 4 verts for main fin and 3 for their corner correction 
+[maxvertexcount(24)]
 void main(triangleadj VS_OUT input[6], inout TriangleStream<GsOut> outStream)
 {
   //Check if front facing tri
@@ -85,7 +119,6 @@ void main(triangleadj VS_OUT input[6], inout TriangleStream<GsOut> outStream)
     checkAdjacentTri(outStream, input[5].posW, input[0].posW, input[4].posW,
       faceNorm, input[0].normalW, input[4].normalW);
 
-
     //Output the main triangle
     int triIndices[3] = { 0, 2, 4 };
     for (int i = 0; i < 3; ++i)
@@ -93,7 +126,7 @@ void main(triangleadj VS_OUT input[6], inout TriangleStream<GsOut> outStream)
       GsOut output;
       output.posH = mul(float4(input[triIndices[i]].posW, 1.0f), gCam.viewProjMat);
       output.normalW = input[triIndices[i]].normalW;
-      output.color = float4(1.f, 1.f, 1.f, 1.f);
+      output.color = float4(1.f, input[triIndices[i]].texC, 0.f);
       outStream.Append(output);
     }
     outStream.RestartStrip();

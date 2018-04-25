@@ -54,6 +54,21 @@ class NprSceneRenderer : public SceneRenderer
       mpNoCullRS = RasterizerState::create(desc);
     }
 
+    bool setPerModelData(const CurrentWorkingData& currentData) override
+    {
+      auto cb = currentData.pVars->getConstantBuffer("GsPerFrame");
+      if(cb)
+      {
+        auto offset = cb->getVariableOffset("ssCenter");
+        auto center = vec4(currentData.pModel->getCenter(), 1.0f);
+        auto mvp = currentData.pCamera->getViewProjMatrix();
+        center = mvp * center;
+        cb->setBlob(&center, offset, sizeof(vec3));
+      }
+
+      return SceneRenderer::setPerModelData(currentData);
+    }
+
     bool setPerMaterialData(const CurrentWorkingData& currentData, const Material* pMaterial) override
     {
       RasterizerState::SharedPtr pRs;

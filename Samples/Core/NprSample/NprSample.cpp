@@ -29,6 +29,12 @@
 
 const std::string NprSample::skDefaultScene = "Scenes/MultiModel.fscene";
 
+const Gui::DropdownList NprSample::skEdgeModeList = 
+{
+  { (int32_t)EdgeMode::Image, "Image" },
+  { (int32_t)EdgeMode::Geometry, "Geometry" }
+};
+
 const Gui::DropdownList NprSample::skDebugModeList = 
 {
   { (int32_t)DebugMode::None, "None" },
@@ -80,31 +86,46 @@ void NprSample::onGuiRender()
 
   if(mpGui->beginGroup("Edge Pass"))
   {
-    uint32_t uImageOp = (uint32_t)mImagePass.imageOp;
-    if(mpGui->addDropdown("Operator", skImageOperatorList, uImageOp))
+    uint32_t uEdgeMode = (uint32_t)mEdgeMode;
+    if(mpGui->addDropdown("Mode", skEdgeModeList, uEdgeMode))
     {
-      mImagePass.imageOp = (ImageOperator)uImageOp;
-      auto pProg = mImagePass.pPass->getProgram();
-      pProg->clearDefines();
-      switch(mImagePass.imageOp)
-      {
-        case Sobel:
-          break;
-        case Prewitt:
-          pProg->addDefine("_PREWITT");
-          break;
-        case Scharr:
-          pProg->addDefine("_SCHARR");
-          break;
-        default:
-          should_not_get_here();
-      }
+      mEdgeMode = (EdgeMode)uEdgeMode;
     }
 
-    mpGui->addFloatVar("Normal Threshold", mImagePassData.normalThreshold, 0);
-    float shownDepthThreshold = mImagePassData.depthThreshold / mImagePass.depthScale;
-    mpGui->addFloatVar("Depth Threshold", shownDepthThreshold, 0);
-    mImagePassData.depthThreshold = shownDepthThreshold * mImagePass.depthScale;
+    if(mEdgeMode == EdgeMode::Image)
+    {
+      uint32_t uImageOp = (uint32_t)mImagePass.imageOp;
+      if(mpGui->addDropdown("Operator", skImageOperatorList, uImageOp))
+      {
+        mImagePass.imageOp = (ImageOperator)uImageOp;
+        auto pProg = mImagePass.pPass->getProgram();
+        pProg->clearDefines();
+        switch(mImagePass.imageOp)
+        {
+          case Sobel:
+            break;
+          case Prewitt:
+            pProg->addDefine("_PREWITT");
+            break;
+          case Scharr:
+            pProg->addDefine("_SCHARR");
+            break;
+          default:
+            should_not_get_here();
+        }
+      }
+      mpGui->addFloatVar("Normal Threshold", mImagePassData.normalThreshold, 0);
+      float shownDepthThreshold = mImagePassData.depthThreshold / mImagePass.depthScale;
+      mpGui->addFloatVar("Depth Threshold", shownDepthThreshold, 0);
+      mImagePassData.depthThreshold = shownDepthThreshold * mImagePass.depthScale;
+    }
+    else
+    {
+      mpGui->addFloatVar("Edge Length", mGeoEdgePassData.edgeLength);
+      mpGui->addFloatVar("Crease Threshold", mGeoEdgePassData.creaseThreshold);
+      mpGui->addFloatVar("Facing Bias", mGeoEdgePassData.facingBias);
+      mpGui->addFloatVar("Z Bias", mGeoEdgePassData.zBias);
+    }
 
     mpGui->endGroup();
   }
@@ -206,22 +227,28 @@ void NprSample::onFrameRender()
     //Edge Pass
     if(mDebugControls.mode == None)
     {
-      //mImagePassData.textureDimensions.x = mpDefaultFBO->getWidth();
-      //mImagePassData.textureDimensions.y = mpDefaultFBO->getHeight();
-      //mImagePass.pVars->getConstantBuffer("PerFrame")->setBlob(&mImagePassData, 0, sizeof(ImageOperatorPassData));
-      //mImagePass.pVars->setTexture("gDepth", depthTex);
-      //mImagePass.pVars->setTexture("gNormal", normalTex);
-      //mpRenderContext->pushGraphicsVars(mImagePass.pVars);
-      //mImagePass.pPass->execute(mpRenderContext.get());
-      //mpRenderContext->popGraphicsVars();
-
-      mGeoEdgePass.pVars->getConstantBuffer("GsPerFrame")->setBlob(&mGeoEdgePass.edgeLength, 0, sizeof(float));
-      mGeoEdgePass.pState->setFbo(mpDefaultFBO);
-      mpRenderContext->pushGraphicsState(mGeoEdgePass.pState);
-      mpRenderContext->pushGraphicsVars(mGeoEdgePass.pVars);
-      mpSceneRenderer->renderScene(mpRenderContext.get());
-      mpRenderContext->popGraphicsVars();
-      mpRenderContext->popGraphicsState();
+      if(mEdgeMode == Image)
+      {
+        mImagePassData.textureDimensions.x = mpDefaultFBO->getWidth();
+        mImagePassData.textureDimensions.y = mpDefaultFBO->getHeight();
+        mImagePass.pVars->getConstantBuffer("PerFrame")->setBlob(&mImagePassData, 0, sizeof(ImageOperatorPassData));
+        mImagePass.pVars->setTexture("gDepth", depthTex);
+        mImagePass.pVars->setTexture("gNormal", normalTex);
+        mpRenderContext->pushGraphicsVars(mImagePass.pVars);
+        mImagePass.pPass->execute(mpRenderContext.get());
+        mpRenderContext->popGraphicsVars();
+      }
+      //Geometry
+      else
+      {
+        mGeoEdgePass.pVars->getConstantBuffer("GsPerFrame")->setBlob(&mGeoEdgePassData, 0, sizeof(GeometryEdgePass));
+        mGeoEdgePass.pState->setFbo(mpDefaultFBO);
+        mpRenderContext->pushGraphicsState(mGeoEdgePass.pState);
+        mpRenderContext->pushGraphicsVars(mGeoEdgePass.pVars);
+        mpSceneRenderer->renderScene(mpRenderContext.get());
+        mpRenderContext->popGraphicsVars();
+        mpRenderContext->popGraphicsState();
+      }
     }
     //Debugging
     else

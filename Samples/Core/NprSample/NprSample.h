@@ -89,6 +89,18 @@ class NprSample : public Sample
       float edgeLength = 0.1f;
     } mGeoEdgePass;
 
+    struct GeometryEdgePassData
+    {
+      float edgeLength = 0.01f;
+      float creaseThreshold = 0.85f;
+      float facingBias = 0.001f;
+      float zBias = 0.01f;
+    } mGeoEdgePassData;
+
+    enum EdgeMode { Image = 0, Geometry = 1 };
+    const static Gui::DropdownList skEdgeModeList;
+    EdgeMode mEdgeMode = EdgeMode::Geometry;
+
     enum DebugMode { None = 0, Depth = 1, Normal = 2, DebugModeCount = 3};
     const static Gui::DropdownList skDebugModeList;
     struct DebugControls
