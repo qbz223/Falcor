@@ -109,6 +109,13 @@ class NprSample : public Sample
     enum ShadingMode { EdgeOnly = 0, Albedo = 1, NDotL0 = 2, Toon = 3, ShadingModeCount = 4 };
     const static Gui::DropdownList skShadingModeList;
     ShadingMode mShadingMode = ShadingMode::EdgeOnly;
+    static const uint32_t skNumThresholds = 3;
+    struct NprShadingData
+    {
+      float toonThresholds[skNumThresholds] = {0.35f, 0.6f, 0.85f};
+      float padding;
+      float toonScalars[skNumThresholds + 1] = {0.1f, 0.35f, 0.7f, 1.0f};
+    } mShadingData;
 
     enum DebugMode { None = 0, Depth = 1, Normal = 2, 
                       EdgeUv = 3, EdgeU = 4, EdgeV = 5, 

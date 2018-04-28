@@ -189,6 +189,25 @@ void NprSample::onGuiRender()
       }
     }
 
+    switch(mShadingMode)
+    {
+      case Toon:
+        for(uint32_t i = 0; i < skNumThresholds; ++i)
+        {
+          std::string label ="Toon Threshold " + std::to_string(i);
+          float minVal = i == 0 ? 0 : mShadingData.toonThresholds[i - 1];
+          float maxVal = i == skNumThresholds - 1 ? 1 : mShadingData.toonThresholds[i + 1];
+          mpGui->addFloatVar(label.c_str(), mShadingData.toonThresholds[i], minVal, maxVal);
+        }
+        uint32_t numScalars = skNumThresholds + 1;
+        for(uint32_t i = 0; i < numScalars; ++i)
+        {
+          std::string label = "Toon Scalar " + std::to_string(i);
+          mpGui->addFloatVar(label.c_str(), mShadingData.toonScalars[i], 0, 1);
+        }
+        break;
+    }
+
     mpGui->endGroup();
   }
 
@@ -395,6 +414,8 @@ void NprSample::createAndSetGBufferFbo()
 
 void NprSample::renderGBuffer()
 {
+  mGBuffer.pVars->getConstantBuffer("NprShadingData")->setBlob(&mShadingData, 0, sizeof(NprShadingData));
+
   mpRenderContext->pushGraphicsState(mGBuffer.pState);
   mpRenderContext->pushGraphicsVars(mGBuffer.pVars);
   mpSceneRenderer->renderScene(mpRenderContext.get());
@@ -422,8 +443,10 @@ void NprSample::renderImageEdges()
 
 void NprSample::renderGeoEdges()
 {
-  mpSceneRenderer->enableCulling(false);
   mGeoEdgePass.pVars->getConstantBuffer("GsPerFrame")->setBlob(&mGeoEdgePassData, 0, sizeof(GeometryEdgePass));
+  mGeoEdgePass.pVars->getConstantBuffer("NprShadingData")->setBlob(&mShadingData, 0, sizeof(NprShadingData));
+
+  mpSceneRenderer->enableCulling(false);
   mGeoEdgePass.pState->setFbo(mpDefaultFBO);
   mpRenderContext->pushGraphicsState(mGeoEdgePass.pState);
   mpRenderContext->pushGraphicsVars(mGeoEdgePass.pVars);
