@@ -27,7 +27,7 @@ float3 calcColor(float3 posW, float3 normalW, float3 bitanW, float2 texC)
 
   float nDotL = dot(normalW, gLights[0].worldDir);
 #ifdef _DRAW_NDOTL
-  return nDotL;
+  return nDotL.xxx;
 #endif
 
 #ifdef _TOON

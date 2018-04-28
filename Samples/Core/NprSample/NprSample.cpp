@@ -38,6 +38,8 @@ const Gui::DropdownList NprSample::skEdgeModeList =
 const Gui::DropdownList NprSample::skShadingModeList =
 {
   { (int32_t)ShadingMode::EdgeOnly, "EdgeOnly" },
+  { (int32_t)ShadingMode::Albedo, "Albedo" },
+  { (int32_t)ShadingMode::NDotL0, "N dot L0" },
   { (int32_t)ShadingMode::Toon, "Toon" }
 };
 
@@ -48,7 +50,7 @@ const Gui::DropdownList NprSample::skDebugModeList =
   { (int32_t)DebugMode::Normal, "Normal" },
   { (int32_t)DebugMode::EdgeUv, "EdgeUv" },
   { (int32_t)DebugMode::EdgeU, "EdgeU" },
-  { (int32_t)DebugMode::EdgeV, "EdgeV" }
+  { (int32_t)DebugMode::EdgeV, "EdgeV" },
 };
 
 const Gui::DropdownList NprSample::skImageOperatorList =
@@ -161,9 +163,22 @@ void NprSample::onGuiRender()
       auto geoProg = mGeoEdgePass.pState->getProgram();
       gBufProg->removeDefine("_TOON");
       geoProg->removeDefine("_TOON");
+      gBufProg->removeDefine("_DRAW_ALBEDO");
+      geoProg->removeDefine("_DRAW_ALBEDO");
+      gBufProg->removeDefine("_DRAW_NDOTL");
+      geoProg->removeDefine("_DRAW_NDOTL");
+
       switch(mShadingMode)
       {
       case ShadingMode::EdgeOnly:
+        break;
+      case ShadingMode::Albedo:
+        geoProg->addDefine("_DRAW_ALBEDO");
+        gBufProg->addDefine("_DRAW_ALBEDO");
+        break;
+      case ShadingMode::NDotL0:
+        geoProg->addDefine("_DRAW_NDOTL");
+        gBufProg->addDefine("_DRAW_NDOTL");
         break;
       case ShadingMode::Toon:
         gBufProg->addDefine("_TOON");
@@ -185,10 +200,12 @@ void NprSample::onGuiRender()
       mDebugControls.mode = (DebugMode)uDebugMode;
       auto pImageProg = mDebugControls.pDebugPass->getProgram();
       auto pGeoProg = mGeoEdgePass.pState->getProgram();
+      auto pGbufProg = mGBuffer.pState->getProgram();
       pImageProg->clearDefines();
       pGeoProg->removeDefine("_EDGE_UV");
       pGeoProg->removeDefine("_EDGE_U");
       pGeoProg->removeDefine("_EDGE_V");
+
       switch(mDebugControls.mode)
       {
         case None:
@@ -273,43 +290,40 @@ void NprSample::onFrameRender()
   {
     mpSceneRenderer->update(mCurrentTime);
 
-    //Edge Pass
-    if(mDebugControls.mode == None)
+    if(mDebugControls.mode == Depth || mDebugControls.mode == Normal)
     {
-      if(mEdgeMode == Image)
+      renderGBuffer();
+
+      if (mDebugControls.mode == Depth)
+      {
+        mDebugControls.pVars->getConstantBuffer("PerFrame")->setBlob(&mDebugControls.depthMin, 0, 2 * sizeof(float));
+        mDebugControls.pVars->setTexture("gDebugTex", mGBuffer.pState->getFbo()->getDepthStencilTexture());
+      }
+      else
+      {
+        mDebugControls.pVars->setTexture("gDebugTex", mGBuffer.pState->getFbo()->getColorTexture(0));
+      }
+
+      mpRenderContext->pushGraphicsVars(mDebugControls.pVars);
+      mDebugControls.pDebugPass->execute(mpRenderContext.get());
+      mpRenderContext->popGraphicsVars();
+    }
+    else if(mDebugControls.mode == EdgeUv || mDebugControls.mode ==  EdgeU ||
+            mDebugControls.mode == EdgeV)
+    {
+      renderGeoEdges();
+    }
+    //Either normal operation, abledo, or ndotl
+    //defines will take care of it 
+    else
+    {
+      if (mEdgeMode == Image)
       {
         renderGBuffer();
         renderImageEdges();
       }
       //Geometry
       else
-      {
-        renderGeoEdges();
-      }
-    }
-    //Debugging
-    else
-    {
-      if(mDebugControls.mode == Depth || mDebugControls.mode == Normal)
-      {
-        renderGBuffer();
-
-        if (mDebugControls.mode == Depth)
-        {
-          mDebugControls.pVars->getConstantBuffer("PerFrame")->setBlob(&mDebugControls.depthMin, 0, 2 * sizeof(float));
-          mDebugControls.pVars->setTexture("gDebugTex", mGBuffer.pState->getFbo()->getDepthStencilTexture());
-        }
-        else
-        {
-          mDebugControls.pVars->setTexture("gDebugTex", mGBuffer.pState->getFbo()->getColorTexture(0));
-        }
-
-        mpRenderContext->pushGraphicsVars(mDebugControls.pVars);
-        mDebugControls.pDebugPass->execute(mpRenderContext.get());
-        mpRenderContext->popGraphicsVars();
-      }
-      else if(mDebugControls.mode == EdgeUv || mDebugControls.mode ==  EdgeU ||
-              mDebugControls.mode == EdgeV)
       {
         renderGeoEdges();
       }
@@ -394,7 +408,6 @@ void NprSample::renderImageEdges()
   auto normalTex = gBuffer->getColorTexture(0);
   auto colorTex = gBuffer->getColorTexture(1);
   auto depthTex = gBuffer->getDepthStencilTexture();
-
 
   mImagePassData.textureDimensions.x = mpDefaultFBO->getWidth();
   mImagePassData.textureDimensions.y = mpDefaultFBO->getHeight();

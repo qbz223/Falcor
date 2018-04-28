@@ -125,7 +125,6 @@ void checkAdjacentTri(inout TriangleStream<GsOut> outStream,
   }
 }
 
-
 #if defined _USE_EDGE_CAPS
 //3 for main tri. each edge is 4 verts for main fin and 3 for their corner correction 
 [maxvertexcount(24)]

@@ -105,12 +105,14 @@ class NprSample : public Sample
     const static Gui::DropdownList skEdgeModeList;
     EdgeMode mEdgeMode = EdgeMode::Geometry;
 
-    enum ShadingMode { EdgeOnly = 0, Toon = 1 };
+    //TODO pass in a light index rather than just doing nDotL0
+    enum ShadingMode { EdgeOnly = 0, Albedo = 1, NDotL0 = 2, Toon = 3, ShadingModeCount = 4 };
     const static Gui::DropdownList skShadingModeList;
     ShadingMode mShadingMode = ShadingMode::EdgeOnly;
 
     enum DebugMode { None = 0, Depth = 1, Normal = 2, 
-                      EdgeUv = 3, EdgeU = 4, EdgeV = 5, DebugModeCount = 6};
+                      EdgeUv = 3, EdgeU = 4, EdgeV = 5, 
+                       DebugModeCount = 8};
     const static Gui::DropdownList skDebugModeList;
     struct DebugControls
     {
