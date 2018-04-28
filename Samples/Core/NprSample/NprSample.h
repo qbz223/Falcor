@@ -106,7 +106,7 @@ class NprSample : public Sample
     EdgeMode mEdgeMode = EdgeMode::Geometry;
 
     //TODO pass in a light index rather than just doing nDotL0
-    enum ShadingMode { EdgeOnly = 0, Albedo = 1, NDotL0 = 2, Toon = 3, ShadingModeCount = 4 };
+    enum ShadingMode { EdgeOnly = 0, Albedo = 1, NDotL0 = 2, Toon = 3, Gooch = 4, ShadingModeCount = 5 };
     const static Gui::DropdownList skShadingModeList;
     ShadingMode mShadingMode = ShadingMode::EdgeOnly;
     static const uint32_t skNumThresholds = 3;
@@ -115,6 +115,11 @@ class NprSample : public Sample
       float toonThresholds[skNumThresholds] = {0.35f, 0.6f, 0.85f};
       float padding;
       float toonScalars[skNumThresholds + 1] = {0.1f, 0.35f, 0.7f, 1.0f};
+      //w is the extent to which albedo color is mixed in
+      float3 warmColor = float3(1, .29f, .29f);
+      float warmAlbedoMix = 0.5f;
+      float3 coolColor = float3(.62f, .58f, 1);
+      float coolAlbedoMix = 0.25f;
     } mShadingData;
 
     enum DebugMode { None = 0, Depth = 1, Normal = 2, 

@@ -8,6 +8,10 @@ cbuffer NprShadingData
   //only uses xyz but needs to be aligned
   float4 toonThresholds;
   float4 toonScalars; 
+  float3 warmColor;
+  float warmAlbedoMix;
+  float3 coolColor;
+  float coolAlbedoMix;
 }
 
 #if !defined _LIGHT_COUNT
@@ -48,5 +52,12 @@ float3 calcColor(float3 posW, float3 normalW, float3 bitanW, float2 texC)
     return float3(toonScalars.x) * albedo;
 #endif
 
+#ifdef _GOOCH
+  float3 objWarm = warmColor + albedo * warmAlbedoMix;
+  float3 objCool = coolColor + albedo * coolAlbedoMix;
+  return lerp(objCool, objWarm, nDotL);
+#endif
+
+//If no defines, is edge only
   return float3(1, 1, 1);
 }

@@ -40,7 +40,8 @@ const Gui::DropdownList NprSample::skShadingModeList =
   { (int32_t)ShadingMode::EdgeOnly, "EdgeOnly" },
   { (int32_t)ShadingMode::Albedo, "Albedo" },
   { (int32_t)ShadingMode::NDotL0, "N dot L0" },
-  { (int32_t)ShadingMode::Toon, "Toon" }
+  { (int32_t)ShadingMode::Toon, "Toon" },
+  { (int32_t)ShadingMode::Gooch, "Gooch" }
 };
 
 const Gui::DropdownList NprSample::skDebugModeList = 
@@ -167,6 +168,8 @@ void NprSample::onGuiRender()
       geoProg->removeDefine("_DRAW_ALBEDO");
       gBufProg->removeDefine("_DRAW_NDOTL");
       geoProg->removeDefine("_DRAW_NDOTL");
+      gBufProg->removeDefine("_GOOCH");
+      geoProg->removeDefine("_GOOCH");
 
       switch(mShadingMode)
       {
@@ -184,6 +187,9 @@ void NprSample::onGuiRender()
         gBufProg->addDefine("_TOON");
         geoProg->addDefine("_TOON");
         break;
+      case ShadingMode::Gooch:
+        gBufProg->addDefine("_GOOCH");
+        geoProg->addDefine("_GOOCH");
       default:
         should_not_get_here();
       }
@@ -192,6 +198,7 @@ void NprSample::onGuiRender()
     switch(mShadingMode)
     {
       case Toon:
+      {
         for(uint32_t i = 0; i < skNumThresholds; ++i)
         {
           std::string label ="Toon Threshold " + std::to_string(i);
@@ -206,6 +213,15 @@ void NprSample::onGuiRender()
           mpGui->addFloatVar(label.c_str(), mShadingData.toonScalars[i], 0, 1);
         }
         break;
+      }
+      case Gooch:
+      {
+        mpGui->addRgbColor("Warm Color", mShadingData.warmColor);
+        mpGui->addFloatVar("Warm Albedo Mix", mShadingData.warmAlbedoMix, 0, 1);
+        mpGui->addRgbColor("Cool Color", mShadingData.coolColor);
+        mpGui->addFloatVar("Cool Albedo Mix", mShadingData.coolAlbedoMix, 0, 1);
+        break;
+      }
     }
 
     mpGui->endGroup();
