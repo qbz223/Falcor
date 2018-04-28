@@ -74,20 +74,6 @@ void NprSample::onGuiRender()
       }
     }
 
-    if (mpGui->addButton("Load Model"))
-    {
-      std::string filename;
-      if (openFileDialog(Model::kSupportedFileFormatsStr, filename))
-      {
-        auto model = Model::createFromFile(filename.c_str());
-        if (model)
-        {
-          mpScene->deleteAllModels();
-          mpScene->addModelInstance(model, "MainModel");
-        }
-      }
-    }
-
     if(mpGui->addFloat2Var("Camera Depth Range", mCameraDepthRange, 0.001f, 1000000.0f))
     {
       mpScene->getActiveCamera()->setDepthRange(mCameraDepthRange.x, mCameraDepthRange.y);

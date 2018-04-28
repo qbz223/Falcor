@@ -42,6 +42,7 @@ float3 calcColor(float3 posW, float3 normalW, float3 bitanW, float2 texC)
 #endif
 
 #ifdef _TOON
+  nDotL = (nDotL + 1) / 2.0f;
   if (nDotL > toonThresholds.z)
     return float3(toonScalars.w) * albedo;
   else if (nDotL > toonThresholds.y)

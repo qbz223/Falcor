@@ -50,6 +50,9 @@ void extrudeEdgeCap(inout TriangleStream<GsOut> outStream, float3 v, float3 n, f
   float2 m = normalize(temp.xy - (s.xy * dim.xy));
   float4 capVert = float4(((s.xy * dim.xy) + p * sign(dot(m, p))) / dim.xy * s.w, s.zw);
   GsOut output;
+  output.posW = float3(0, 0, 0);
+  output.texC = float2(0, 0);
+  output.bitangentW = float3(0, 0, 0);
   output.posH = s;
   output.normalW = n;
   output.color = float4(0, 0, 0, 1);
