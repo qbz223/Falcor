@@ -1,14 +1,17 @@
 __import DefaultVS;
-__import ShaderCommon;
-__import Shading;
-__import Helpers;
+#include "NprCommon.hlsli"
 
-float4 main(VS_OUT vOut) : SV_TARGET
+struct PS_OUT
 {
-  ShadingAttribs attr;
-  attr.lodBias = 0;
-  attr.UV = vOut.texC;
-  applyAlphaTest(gMaterial, attr, vOut.posW);
+  float4 normal : SV_TARGET0;
+  float4 color : SV_TARGET1;
+};
 
-  return float4(vOut.normalW, 1.0f);
+PS_OUT main(VS_OUT vOut)
+{
+  PS_OUT output;
+  //TODO these can be 3 component textures eventually
+  output.color = float4(calcColor(vOut.posW, -vOut.normalW, vOut.bitangentW, vOut.texC), 1.0f);
+  output.normal = float4(vOut.normalW, 1.0f);
+  return output;
 }

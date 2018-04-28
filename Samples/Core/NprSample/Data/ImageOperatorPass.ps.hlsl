@@ -1,6 +1,7 @@
 SamplerState gSampler;
 Texture2D gDepth;
 Texture2D gNormal;
+Texture2D gColorTex;
 
 cbuffer PerFrame
 {
@@ -52,5 +53,12 @@ float4 main(float2 texC : TEXCOORD) : SV_TARGET
   float depthMagnitude = sqrt(depthGradient.x * depthGradient.x + depthGradient.y * depthGradient.y);
 
   int edge = (normalMagnitude > normalThreshold) || (depthMagnitude > depthThreshold);
-  return float4(!edge.xxx, 1.0f);
+  if(edge)
+  {
+    return float4(0, 0, 0, 1);
+  }
+  else
+  {
+    return gColorTex[iCoords];
+  }
 }

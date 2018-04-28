@@ -1,17 +1,11 @@
 //Based on Inking the Cube : Edge Detection with Direct3D 10, Doss 2008
 __import DefaultVS;
 __import ShaderCommon;
+#include "NprCommon.hlsli"
 
 static const float kHalfPi = 1.57079632679f;
 static const float kPi = 3.14159265359f;
 static const float kTwoPi = 6.28318530718f;
-
-struct GsOut
-{
-  float4 posH : SV_POSITION;
-  float4 color : COLOR;
-  float3 normalW : NORMAL;
-};
 
 cbuffer GsPerFrame
 {
@@ -24,7 +18,7 @@ cbuffer GsPerFrame
 
 float getAngularDistance(float3 ssPos)
 {
-  float2 p = normalize(ssPos - ssCenter);
+  float2 p = normalize(ssPos.xy - ssCenter.xy);
   float theta = atan2(p.y, p.x);
   theta += kPi;
   return theta;
@@ -39,13 +33,13 @@ float3 getFaceNormal(float3 a, float3 b, float3 c)
 }
 
 //Based on House Edge Detection Thesis 2010
-void extrudeEdgeCap(inout TriangleStream<GsOut> outStream, float3 v, float3 n, float4 s, float4 s1, float p)
+void extrudeEdgeCap(inout TriangleStream<GsOut> outStream, float3 v, float3 n, float4 s, float4 s1, float2 p)
 {
-  float2 dim = float2(1920, 1080);
+  float4 dim = float4(1920, 1080, 1, 1);
   float4 temp = mul(float4(v + n, 1.0f), gCam.viewProjMat);
-  temp.xy = (temp.xy / temp.w) * dim;
-  float2 m = normalize(temp.xy - (s.xy * dim));
-  float4 capVert = float4(((s * dim) + p * sign(dot(m, p))) / dim * s.w, s.zw);
+  temp.xy = (temp.xy / temp.w) * dim.xy;
+  float2 m = normalize(temp.xy - (s.xy * dim.xy));
+  float4 capVert = float4(((s.xy * dim.xy) + p * sign(dot(m, p))) / dim.xy * s.w, s.zw);
   GsOut output;
   output.posH = s;
   output.normalW = n;
@@ -60,8 +54,8 @@ void extrudeEdgeCap(inout TriangleStream<GsOut> outStream, float3 v, float3 n, f
 
 void extrudeEdge(inout TriangleStream<GsOut> outStream, float3 aPos, float3 aNorm, float3 bPos, float3 bNorm)
 {
-  float aSideVec = 0.5f * aNorm * edgeLength;
-  float bSideVec = 0.5f * bNorm * edgeLength;
+  float3 aSideVec = 0.5f * aNorm * edgeLength;
+  float3 bSideVec = 0.5f * bNorm * edgeLength;
   float4 edgeVerts[4] = {//float4 so can store posH
     float4(aPos - aSideVec, 0), float4(aPos + aSideVec, 0),
     float4(bPos - bSideVec, 0), float4(bPos + bSideVec, 0) };
@@ -70,6 +64,9 @@ void extrudeEdge(inout TriangleStream<GsOut> outStream, float3 aPos, float3 aNor
   for(uint i = 0; i < 4; ++i)
   {
     GsOut output;
+    output.posW = float3(0);
+    output.texC = float2(0);
+    output.bitangentW = float3(0);
     float4 view = mul(float4(edgeVerts[i].xyz, 1.0f), gCam.viewMat);
     view.z -= zBias;
     output.posH = mul(view, gCam.projMat);
@@ -154,8 +151,11 @@ void main(triangleadj VS_OUT input[6], inout TriangleStream<GsOut> outStream)
     {
       GsOut output;
       output.posH = mul(float4(input[triIndices[i]].posW, 1.0f), gCam.viewProjMat);
-      output.normalW = input[triIndices[i]].normalW;
-      output.color = float4(1.f, 1.f, 1.f, 0.f);
+      output.normalW = -input[triIndices[i]].normalW;
+      output.color = float4(1.f, 1.f, 1.f, 1.f);
+      output.posW = input[triIndices[i]].posW;
+      output.texC = input[triIndices[i]].texC;
+      output.bitangentW = input[triIndices[i]].bitangentW;
       outStream.Append(output);
     }
     outStream.RestartStrip();

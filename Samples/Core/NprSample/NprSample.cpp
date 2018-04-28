@@ -331,6 +331,9 @@ void NprSample::loadScene(std::string filename)
   mpScene = Scene::loadFromFile(filename, Model::LoadFlags::GenerateAdjacency | Model::LoadFlags::DontGenerateTangentSpace);
   mpScene->getActiveCamera()->setDepthRange(0.01f, 100.0f);
   mpSceneRenderer = NprSceneRenderer::create(mpScene);
+  std::string lightCountStr = std::to_string(mpSceneRenderer->getScene()->getLightCount());
+  mGeoEdgePass.pState->getProgram()->addDefine("_LIGHT_COUNT", lightCountStr);
+  mGBuffer.pState->getProgram()->addDefine("_LIGHT_COUNT", lightCountStr);
   onResizeSwapChain();
 }
 
@@ -338,6 +341,7 @@ void NprSample::createAndSetGBufferFbo()
 {
   Fbo::Desc gBufDesc;
   gBufDesc.setColorTarget(0, ResourceFormat::RGBA32Float);
+  gBufDesc.setColorTarget(1, ResourceFormat::RGBA32Float);
   gBufDesc.setDepthStencilTarget(ResourceFormat::D32Float);
   auto pFbo = FboHelper::create2D(mpDefaultFBO->getWidth(), mpDefaultFBO->getHeight(), gBufDesc);
   mGBuffer.pState->setFbo(pFbo);
@@ -356,13 +360,16 @@ void NprSample::renderImageEdges()
 {
   auto gBuffer = mGBuffer.pState->getFbo();
   auto normalTex = gBuffer->getColorTexture(0);
+  auto colorTex = gBuffer->getColorTexture(1);
   auto depthTex = gBuffer->getDepthStencilTexture();
+
 
   mImagePassData.textureDimensions.x = mpDefaultFBO->getWidth();
   mImagePassData.textureDimensions.y = mpDefaultFBO->getHeight();
   mImagePass.pVars->getConstantBuffer("PerFrame")->setBlob(&mImagePassData, 0, sizeof(ImageOperatorPassData));
   mImagePass.pVars->setTexture("gDepth", depthTex);
   mImagePass.pVars->setTexture("gNormal", normalTex);
+  mImagePass.pVars->setTexture("gColorTex", colorTex);
   mpRenderContext->pushGraphicsVars(mImagePass.pVars);
   mImagePass.pPass->execute(mpRenderContext.get());
   mpRenderContext->popGraphicsVars();

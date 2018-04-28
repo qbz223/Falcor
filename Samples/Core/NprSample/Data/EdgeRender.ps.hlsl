@@ -1,8 +1,17 @@
+__import ShaderCommon;
+__import DefaultVS;
+__import Shading;
+#include "VertexAttrib.h"
+#include "NprCommon.hlsli"
+
 struct GsOut
 {
   float4 posH : SV_POSITION;
   float4 color : COLOR;
   float3 normalW : NORMAL;
+  float3 posW : POSITION;
+  float2 texC : TEXCOORD;
+  float3 bitangentW : BITANGENT;
 };
 
 float4 main(GsOut psIn) : SV_TARGET0
@@ -37,6 +46,16 @@ float4 main(GsOut psIn) : SV_TARGET0
     return psIn.color;
   }
 #else
-  return psIn.color;
+  //Edge
+  if(psIn.color.x < 0.1f)
+  {
+    return psIn.color;
+  }
+  else
+  {
+    float3 color = calcColor(psIn.posW, psIn.normalW, psIn.bitangentW, psIn.texC);
+    return float4(color, 1.0f);
+  }
+
 #endif
 }

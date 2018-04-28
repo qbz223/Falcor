@@ -32,4 +32,9 @@
       <Filter>Data</Filter>
     </FxCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Data\NprCommon.hlsli">
+      <Filter>Data</Filter>
+    </None>
+  </ItemGroup>
 </Project>
