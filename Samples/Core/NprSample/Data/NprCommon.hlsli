@@ -30,6 +30,7 @@ float3 calcColor(float3 posW, float3 normalW, float3 bitanW, float2 texC)
   return nDotL;
 #endif
 
+#ifdef _TOON
   if (nDotL > 0.65)
     return float3(1.f) * albedo;
   else if (nDotL > 0.5f)
@@ -38,5 +39,7 @@ float3 calcColor(float3 posW, float3 normalW, float3 bitanW, float2 texC)
     return float3(0.35f) * albedo;
   else
     return float3(0.1f) * albedo;
+#endif
 
+  return float3(1, 1, 1);
 }

@@ -1,11 +1,20 @@
 //Based on Inking the Cube : Edge Detection with Direct3D 10, Doss 2008
 __import DefaultVS;
 __import ShaderCommon;
-#include "NprCommon.hlsli"
 
 static const float kHalfPi = 1.57079632679f;
 static const float kPi = 3.14159265359f;
 static const float kTwoPi = 6.28318530718f;
+
+struct GsOut
+{
+  float4 posH : SV_POSITION;
+  float4 color : COLOR;
+  float3 normalW : NORMAL;
+  float3 posW : POSITION;
+  float2 texC : TEXCOORD;
+  float3 bitangentW : BITANGENT;
+};
 
 cbuffer GsPerFrame
 {

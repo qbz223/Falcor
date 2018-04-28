@@ -35,6 +35,12 @@ const Gui::DropdownList NprSample::skEdgeModeList =
   { (int32_t)EdgeMode::Geometry, "Geometry" }
 };
 
+const Gui::DropdownList NprSample::skShadingModeList =
+{
+  { (int32_t)ShadingMode::EdgeOnly, "EdgeOnly" },
+  { (int32_t)ShadingMode::Toon, "Toon" }
+};
+
 const Gui::DropdownList NprSample::skDebugModeList = 
 {
   { (int32_t)DebugMode::None, "None" },
@@ -139,6 +145,32 @@ void NprSample::onGuiRender()
         {
           pProg->removeDefine("_USE_EDGE_CAPS");
         }
+      }
+    }
+
+    mpGui->endGroup();
+  }
+
+  if(mpGui->beginGroup("Shading"))
+  {
+    uint32_t iShadingMode = (uint32_t)mShadingMode;
+    if(mpGui->addDropdown("Shading Mode", skShadingModeList, iShadingMode))
+    {
+      mShadingMode = (ShadingMode)iShadingMode;
+      auto gBufProg = mGBuffer.pState->getProgram();
+      auto geoProg = mGeoEdgePass.pState->getProgram();
+      gBufProg->removeDefine("_TOON");
+      geoProg->removeDefine("_TOON");
+      switch(mShadingMode)
+      {
+      case ShadingMode::EdgeOnly:
+        break;
+      case ShadingMode::Toon:
+        gBufProg->addDefine("_TOON");
+        geoProg->addDefine("_TOON");
+        break;
+      default:
+        should_not_get_here();
       }
     }
 
