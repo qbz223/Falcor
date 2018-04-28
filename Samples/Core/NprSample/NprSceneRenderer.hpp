@@ -45,7 +45,12 @@ class NprSceneRenderer : public SceneRenderer
       SceneRenderer::renderScene(pCtx);
     }
 
+    //Its handling RS itself to deal with alpha
+    void enableCulling(bool enable) { mShouldCull = enable; }
+
   private:
+    bool mShouldCull = true;
+
     NprSceneRenderer(Scene::SharedPtr pScene) : SceneRenderer(pScene)
     {
       RasterizerState::Desc desc;
@@ -54,25 +59,29 @@ class NprSceneRenderer : public SceneRenderer
       mpNoCullRS = RasterizerState::create(desc);
     }
 
-    bool setPerModelData(const CurrentWorkingData& currentData) override
+    bool setPerMeshInstanceData(const CurrentWorkingData& currentData, const Scene::ModelInstance* pModelInstance, const Model::MeshInstance* pMeshInstance, uint32_t drawInstanceID) override
     {
       auto cb = currentData.pVars->getConstantBuffer("GsPerFrame");
       if(cb)
       {
         auto offset = cb->getVariableOffset("ssCenter");
-        auto center = vec4(currentData.pModel->getCenter(), 1.0f);
+        auto center = float4(pMeshInstance->getBoundingBox().center, 1.0f);
+        auto world = pModelInstance->getTransformMatrix();
+        world = world * pMeshInstance->getTransformMatrix();
+        auto worldCenter = world * center;
         auto mvp = currentData.pCamera->getViewProjMatrix();
-        center = mvp * center;
+        center = mvp * worldCenter;
+        center /= center.w;
         cb->setBlob(&center, offset, sizeof(vec3));
       }
 
-      return SceneRenderer::setPerModelData(currentData);
+      return SceneRenderer::setPerMeshInstanceData(currentData, pModelInstance, pMeshInstance, drawInstanceID);
     }
 
     bool setPerMaterialData(const CurrentWorkingData& currentData, const Material* pMaterial) override
     {
       RasterizerState::SharedPtr pRs;
-      if(pMaterial->getAlphaMap())
+      if(!mShouldCull || pMaterial->getAlphaMap())
       {
         pRs = mpNoCullRS;
       }

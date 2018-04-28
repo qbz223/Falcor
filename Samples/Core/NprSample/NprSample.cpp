@@ -241,6 +241,7 @@ void NprSample::onFrameRender()
       //Geometry
       else
       {
+        mpSceneRenderer->enableCulling(false);
         mGeoEdgePass.pVars->getConstantBuffer("GsPerFrame")->setBlob(&mGeoEdgePassData, 0, sizeof(GeometryEdgePass));
         mGeoEdgePass.pState->setFbo(mpDefaultFBO);
         mpRenderContext->pushGraphicsState(mGeoEdgePass.pState);
@@ -248,6 +249,7 @@ void NprSample::onFrameRender()
         mpSceneRenderer->renderScene(mpRenderContext.get());
         mpRenderContext->popGraphicsVars();
         mpRenderContext->popGraphicsState();
+        mpSceneRenderer->enableCulling(true);
       }
     }
     //Debugging

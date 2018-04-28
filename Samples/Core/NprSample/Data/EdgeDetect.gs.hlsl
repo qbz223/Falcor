@@ -2,6 +2,10 @@
 __import DefaultVS;
 __import ShaderCommon;
 
+static const float kHalfPi = 1.57079632679f;
+static const float kPi = 3.14159265359f;
+static const float kTwoPi = 6.28318530718f;
+
 struct GsOut
 {
   float4 posH : SV_POSITION;
@@ -16,6 +20,14 @@ cbuffer GsPerFrame
   float facingBias;
   float zBias;
   float3 ssCenter;
+}
+
+float getAngularDistance(float3 ssPos)
+{
+  float2 p = normalize(ssPos - ssCenter);
+  float theta = atan2(p.y, p.x);
+  theta += kPi;
+  return theta;
 }
 
 float3 getFaceNormal(float3 a, float3 b, float3 c)
@@ -48,6 +60,8 @@ void extrudeEdgeCap(inout TriangleStream<GsOut> outStream, float3 v, float3 n, f
 
 void extrudeEdge(inout TriangleStream<GsOut> outStream, float3 aPos, float3 aNorm, float3 bPos, float3 bNorm)
 {
+  float3 aSSNorm = normalize(mul(aNorm, (float3x3)gCam.viewProjMat));
+  float3 bSSNorm = normalize(mul(bNorm, (float3x3)gCam.viewProjMat));
   float aSideVec = 0.5f * aNorm * edgeLength;
   float bSideVec = 0.5f * bNorm * edgeLength;
   float4 edgeVerts[4] = {//float4 so can store posH
@@ -61,10 +75,13 @@ void extrudeEdge(inout TriangleStream<GsOut> outStream, float3 aPos, float3 aNor
     float4 view = mul(float4(edgeVerts[i].xyz, 1.0f), gCam.viewMat);
     view.z -= zBias;
     output.posH = mul(view, gCam.projMat);
+    float distance = getAngularDistance(output.posH.xyz / output.posH.w);
+    float u = distance / kTwoPi;
+    float v = i % 2 == 0 ? 0 : 1;
     //Save posH into edge verts to use for edge caps
     edgeVerts[i] = output.posH;
     output.normalW = i < 2 ? aNorm : bNorm;
-    output.color = float4(0, 0, 0, 1);
+    output.color = float4(0, u, v, 1);
     outStream.Append(output);
   }
   outStream.RestartStrip();
@@ -72,8 +89,7 @@ void extrudeEdge(inout TriangleStream<GsOut> outStream, float3 aPos, float3 aNor
   //Artifacts this is meant to fix aren't even significant on the scenes im using 
   //Having issues with this, try to get it at the end, theres other stuff i want more 
   //float2 p = 2.f * normalize(float2(edgeVerts[0].y - edgeVerts[2].y, edgeVerts[2].x - edgeVerts[0].x));
-  //float3 aSSNorm = mul(aNorm, (float3x3)gCam.viewProjMat);
-  //float3 bSSNorm = mul(bNorm, (float3x3)gCam.viewProjMat);
+  
   //extrudeEdgeCap(outStream, aPos, aSSNorm, edgeVerts[0], edgeVerts[1], p);
   //extrudeEdgeCap(outStream, bPos, bSSNorm, edgeVerts[2], edgeVerts[3], p);
 }
@@ -105,6 +121,8 @@ void main(triangleadj VS_OUT input[6], inout TriangleStream<GsOut> outStream)
   //Check if front facing tri
   float3 faceNorm = getFaceNormal(input[0].posW, input[2].posW, input[4].posW);
   float3 viewDir = normalize(-gCam.position + input[0].posW);
+  //This effectively culls backfacing tris so can disable culling 
+  //so dont need to worry about fins being culled
   if(dot(faceNorm, viewDir) < 0.f)
   {
     //Check edge tri adjacent to 0, 2
@@ -126,7 +144,8 @@ void main(triangleadj VS_OUT input[6], inout TriangleStream<GsOut> outStream)
       GsOut output;
       output.posH = mul(float4(input[triIndices[i]].posW, 1.0f), gCam.viewProjMat);
       output.normalW = input[triIndices[i]].normalW;
-      output.color = float4(1.f, input[triIndices[i]].texC, 0.f);
+      //output.color = float4(1.f, input[triIndices[i]].texC, 0.f);
+      output.color = float4(1.f, 1.f, 1.f, 0.f);
       outStream.Append(output);
     }
     outStream.RestartStrip();
