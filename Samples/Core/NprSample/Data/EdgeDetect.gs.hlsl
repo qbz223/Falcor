@@ -53,15 +53,13 @@ void extrudeEdgeCap(inout TriangleStream<GsOut> outStream, float3 v, float3 n, f
   outStream.Append(output);
   output.posH = capVert;
   outStream.Append(output);
-  output.posH = s1;//s + 0.01f * float4(m, 0, 0);
+  output.posH = s1;
   outStream.Append(output);
   outStream.RestartStrip();
 }
 
 void extrudeEdge(inout TriangleStream<GsOut> outStream, float3 aPos, float3 aNorm, float3 bPos, float3 bNorm)
 {
-  float3 aSSNorm = normalize(mul(aNorm, (float3x3)gCam.viewProjMat));
-  float3 bSSNorm = normalize(mul(bNorm, (float3x3)gCam.viewProjMat));
   float aSideVec = 0.5f * aNorm * edgeLength;
   float bSideVec = 0.5f * bNorm * edgeLength;
   float4 edgeVerts[4] = {//float4 so can store posH
@@ -81,17 +79,24 @@ void extrudeEdge(inout TriangleStream<GsOut> outStream, float3 aPos, float3 aNor
     //Save posH into edge verts to use for edge caps
     edgeVerts[i] = output.posH;
     output.normalW = i < 2 ? aNorm : bNorm;
-    output.color = float4(0, u, v, 1);
+    float2 gbColor = float2(0, 0);
+#if defined _EDGE_UV || defined _EDGE_U || defined _EDGE_V
+    gbColor = float2(u, v);
+#endif
+    output.color = float4(0, gbColor, 1);
     outStream.Append(output);
   }
   outStream.RestartStrip();
 
   //Artifacts this is meant to fix aren't even significant on the scenes im using 
   //Having issues with this, try to get it at the end, theres other stuff i want more 
-  //float2 p = 2.f * normalize(float2(edgeVerts[0].y - edgeVerts[2].y, edgeVerts[2].x - edgeVerts[0].x));
-  
-  //extrudeEdgeCap(outStream, aPos, aSSNorm, edgeVerts[0], edgeVerts[1], p);
-  //extrudeEdgeCap(outStream, bPos, bSSNorm, edgeVerts[2], edgeVerts[3], p);
+#if defined _USE_EDGE_CAPS
+  float3 aSSNorm = normalize(mul(aNorm, (float3x3)gCam.viewProjMat));
+  float3 bSSNorm = normalize(mul(bNorm, (float3x3)gCam.viewProjMat));
+  float2 p = 2.f * normalize(float2(edgeVerts[0].y - edgeVerts[2].y, edgeVerts[2].x - edgeVerts[0].x));
+  extrudeEdgeCap(outStream, aPos, aSSNorm, edgeVerts[0], edgeVerts[1], p);
+  extrudeEdgeCap(outStream, bPos, bSSNorm, edgeVerts[2], edgeVerts[3], p);
+#endif
 }
 
 void checkAdjacentTri(inout TriangleStream<GsOut> outStream, 
@@ -114,8 +119,14 @@ void checkAdjacentTri(inout TriangleStream<GsOut> outStream,
   }
 }
 
+
+#if defined _USE_EDGE_CAPS
 //3 for main tri. each edge is 4 verts for main fin and 3 for their corner correction 
 [maxvertexcount(24)]
+#else 
+//3 for main tri. each edge is 4 verts, corner correction not being used
+[maxvertexcount(15)]
+#endif
 void main(triangleadj VS_OUT input[6], inout TriangleStream<GsOut> outStream)
 {
   //Check if front facing tri
@@ -144,7 +155,6 @@ void main(triangleadj VS_OUT input[6], inout TriangleStream<GsOut> outStream)
       GsOut output;
       output.posH = mul(float4(input[triIndices[i]].posW, 1.0f), gCam.viewProjMat);
       output.normalW = input[triIndices[i]].normalW;
-      //output.color = float4(1.f, input[triIndices[i]].texC, 0.f);
       output.color = float4(1.f, 1.f, 1.f, 0.f);
       outStream.Append(output);
     }

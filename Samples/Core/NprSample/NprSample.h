@@ -47,6 +47,9 @@ class NprSample : public Sample
     const static std::string skDefaultScene;
     void loadScene(std::string filename);
     void createAndSetGBufferFbo();
+    void renderGBuffer();
+    void renderImageEdges();
+    void renderGeoEdges();
     Scene::SharedPtr mpScene;
     NprSceneRenderer::UniquePtr mpSceneRenderer;
     vec2 mCameraDepthRange = vec2(0.001f, 100.0f);
@@ -87,6 +90,7 @@ class NprSample : public Sample
       GraphicsState::SharedPtr pState;
       GraphicsVars::SharedPtr pVars;
       float edgeLength = 0.1f;
+      bool useEdgeCaps = false;
     } mGeoEdgePass;
 
     struct GeometryEdgePassData
@@ -101,7 +105,8 @@ class NprSample : public Sample
     const static Gui::DropdownList skEdgeModeList;
     EdgeMode mEdgeMode = EdgeMode::Geometry;
 
-    enum DebugMode { None = 0, Depth = 1, Normal = 2, DebugModeCount = 3};
+    enum DebugMode { None = 0, Depth = 1, Normal = 2, 
+                      EdgeUv = 3, EdgeU = 4, EdgeV = 5, DebugModeCount = 6};
     const static Gui::DropdownList skDebugModeList;
     struct DebugControls
     {

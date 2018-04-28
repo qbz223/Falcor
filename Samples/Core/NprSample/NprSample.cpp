@@ -39,7 +39,10 @@ const Gui::DropdownList NprSample::skDebugModeList =
 {
   { (int32_t)DebugMode::None, "None" },
   { (int32_t)DebugMode::Depth, "Depth" },
-  { (int32_t)DebugMode::Normal, "Normal" }
+  { (int32_t)DebugMode::Normal, "Normal" },
+  { (int32_t)DebugMode::EdgeUv, "EdgeUv" },
+  { (int32_t)DebugMode::EdgeU, "EdgeU" },
+  { (int32_t)DebugMode::EdgeV, "EdgeV" }
 };
 
 const Gui::DropdownList NprSample::skImageOperatorList =
@@ -125,6 +128,18 @@ void NprSample::onGuiRender()
       mpGui->addFloatVar("Crease Threshold", mGeoEdgePassData.creaseThreshold);
       mpGui->addFloatVar("Facing Bias", mGeoEdgePassData.facingBias);
       mpGui->addFloatVar("Z Bias", mGeoEdgePassData.zBias);
+      if(mpGui->addCheckBox("Draw Edge Caps (Broken)", mGeoEdgePass.useEdgeCaps))
+      {
+        auto pProg = mGeoEdgePass.pState->getProgram();
+        if(mGeoEdgePass.useEdgeCaps)
+        {
+          pProg->addDefine("_USE_EDGE_CAPS");
+        }
+        else
+        {
+          pProg->removeDefine("_USE_EDGE_CAPS");
+        }
+      }
     }
 
     mpGui->endGroup();
@@ -133,20 +148,33 @@ void NprSample::onGuiRender()
   if(mpGui->beginGroup("Debug"))
   {
     uint32_t uDebugMode = (uint32_t)mDebugControls.mode;
-    if(mpGui->addDropdown("Mode", skDebugModeList, uDebugMode))
+    if(mpGui->addDropdown("Debug Mode", skDebugModeList, uDebugMode))
     {
       mDebugControls.mode = (DebugMode)uDebugMode;
-      auto pProg = mDebugControls.pDebugPass->getProgram();
-      pProg->clearDefines();
+      auto pImageProg = mDebugControls.pDebugPass->getProgram();
+      auto pGeoProg = mGeoEdgePass.pState->getProgram();
+      pImageProg->clearDefines();
+      pGeoProg->removeDefine("_EDGE_UV");
+      pGeoProg->removeDefine("_EDGE_U");
+      pGeoProg->removeDefine("_EDGE_V");
       switch(mDebugControls.mode)
       {
         case None:
           break;
         case Depth:
-          pProg->addDefine("_DEPTH");
+          pImageProg->addDefine("_DEPTH");
           break;
         case Normal:
-          pProg->addDefine("_NORMAL");
+          pImageProg->addDefine("_NORMAL");
+          break;
+        case EdgeUv:
+          pGeoProg->addDefine("_EDGE_UV");
+          break;
+        case EdgeU:
+          pGeoProg->addDefine("_EDGE_U");
+          break;
+        case EdgeV:
+          pGeoProg->addDefine("_EDGE_V");
           break;
         default:
           should_not_get_here();
@@ -213,61 +241,46 @@ void NprSample::onFrameRender()
   {
     mpSceneRenderer->update(mCurrentTime);
 
-    //GBuf Pass
-    mpRenderContext->pushGraphicsState(mGBuffer.pState);
-    mpRenderContext->pushGraphicsVars(mGBuffer.pVars);
-    mpSceneRenderer->renderScene(mpRenderContext.get());
-    mpRenderContext->popGraphicsVars();
-    mpRenderContext->popGraphicsState();
-    
-    auto gBuffer = mGBuffer.pState->getFbo();
-    auto normalTex = gBuffer->getColorTexture(0);
-    auto depthTex = gBuffer->getDepthStencilTexture();
-
     //Edge Pass
     if(mDebugControls.mode == None)
     {
       if(mEdgeMode == Image)
       {
-        mImagePassData.textureDimensions.x = mpDefaultFBO->getWidth();
-        mImagePassData.textureDimensions.y = mpDefaultFBO->getHeight();
-        mImagePass.pVars->getConstantBuffer("PerFrame")->setBlob(&mImagePassData, 0, sizeof(ImageOperatorPassData));
-        mImagePass.pVars->setTexture("gDepth", depthTex);
-        mImagePass.pVars->setTexture("gNormal", normalTex);
-        mpRenderContext->pushGraphicsVars(mImagePass.pVars);
-        mImagePass.pPass->execute(mpRenderContext.get());
-        mpRenderContext->popGraphicsVars();
+        renderGBuffer();
+        renderImageEdges();
       }
       //Geometry
       else
       {
-        mpSceneRenderer->enableCulling(false);
-        mGeoEdgePass.pVars->getConstantBuffer("GsPerFrame")->setBlob(&mGeoEdgePassData, 0, sizeof(GeometryEdgePass));
-        mGeoEdgePass.pState->setFbo(mpDefaultFBO);
-        mpRenderContext->pushGraphicsState(mGeoEdgePass.pState);
-        mpRenderContext->pushGraphicsVars(mGeoEdgePass.pVars);
-        mpSceneRenderer->renderScene(mpRenderContext.get());
-        mpRenderContext->popGraphicsVars();
-        mpRenderContext->popGraphicsState();
-        mpSceneRenderer->enableCulling(true);
+        renderGeoEdges();
       }
     }
     //Debugging
     else
     {
-      if(mDebugControls.mode == Depth)
+      if(mDebugControls.mode == Depth || mDebugControls.mode == Normal)
       {
-        mDebugControls.pVars->getConstantBuffer("PerFrame")->setBlob(&mDebugControls.depthMin, 0, 2 * sizeof(float));
-        mDebugControls.pVars->setTexture("gDebugTex", mGBuffer.pState->getFbo()->getDepthStencilTexture());
-      }
-      else if(mDebugControls.mode == Normal)
-      {
-        mDebugControls.pVars->setTexture("gDebugTex", mGBuffer.pState->getFbo()->getColorTexture(0));
-      }
+        renderGBuffer();
 
-      mpRenderContext->pushGraphicsVars(mDebugControls.pVars);
-      mDebugControls.pDebugPass->execute(mpRenderContext.get());
-      mpRenderContext->popGraphicsVars();
+        if (mDebugControls.mode == Depth)
+        {
+          mDebugControls.pVars->getConstantBuffer("PerFrame")->setBlob(&mDebugControls.depthMin, 0, 2 * sizeof(float));
+          mDebugControls.pVars->setTexture("gDebugTex", mGBuffer.pState->getFbo()->getDepthStencilTexture());
+        }
+        else
+        {
+          mDebugControls.pVars->setTexture("gDebugTex", mGBuffer.pState->getFbo()->getColorTexture(0));
+        }
+
+        mpRenderContext->pushGraphicsVars(mDebugControls.pVars);
+        mDebugControls.pDebugPass->execute(mpRenderContext.get());
+        mpRenderContext->popGraphicsVars();
+      }
+      else if(mDebugControls.mode == EdgeUv || mDebugControls.mode ==  EdgeU ||
+              mDebugControls.mode == EdgeV)
+      {
+        renderGeoEdges();
+      }
     }
   }
 }
@@ -328,6 +341,44 @@ void NprSample::createAndSetGBufferFbo()
   gBufDesc.setDepthStencilTarget(ResourceFormat::D32Float);
   auto pFbo = FboHelper::create2D(mpDefaultFBO->getWidth(), mpDefaultFBO->getHeight(), gBufDesc);
   mGBuffer.pState->setFbo(pFbo);
+}
+
+void NprSample::renderGBuffer()
+{
+  mpRenderContext->pushGraphicsState(mGBuffer.pState);
+  mpRenderContext->pushGraphicsVars(mGBuffer.pVars);
+  mpSceneRenderer->renderScene(mpRenderContext.get());
+  mpRenderContext->popGraphicsVars();
+  mpRenderContext->popGraphicsState();
+}
+
+void NprSample::renderImageEdges()
+{
+  auto gBuffer = mGBuffer.pState->getFbo();
+  auto normalTex = gBuffer->getColorTexture(0);
+  auto depthTex = gBuffer->getDepthStencilTexture();
+
+  mImagePassData.textureDimensions.x = mpDefaultFBO->getWidth();
+  mImagePassData.textureDimensions.y = mpDefaultFBO->getHeight();
+  mImagePass.pVars->getConstantBuffer("PerFrame")->setBlob(&mImagePassData, 0, sizeof(ImageOperatorPassData));
+  mImagePass.pVars->setTexture("gDepth", depthTex);
+  mImagePass.pVars->setTexture("gNormal", normalTex);
+  mpRenderContext->pushGraphicsVars(mImagePass.pVars);
+  mImagePass.pPass->execute(mpRenderContext.get());
+  mpRenderContext->popGraphicsVars();
+}
+
+void NprSample::renderGeoEdges()
+{
+  mpSceneRenderer->enableCulling(false);
+  mGeoEdgePass.pVars->getConstantBuffer("GsPerFrame")->setBlob(&mGeoEdgePassData, 0, sizeof(GeometryEdgePass));
+  mGeoEdgePass.pState->setFbo(mpDefaultFBO);
+  mpRenderContext->pushGraphicsState(mGeoEdgePass.pState);
+  mpRenderContext->pushGraphicsVars(mGeoEdgePass.pVars);
+  mpSceneRenderer->renderScene(mpRenderContext.get());
+  mpRenderContext->popGraphicsVars();
+  mpRenderContext->popGraphicsState();
+  mpSceneRenderer->enableCulling(true);
 }
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd)
