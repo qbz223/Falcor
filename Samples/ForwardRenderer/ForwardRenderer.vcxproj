@@ -11,13 +11,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ForwardRenderer.cpp" />
-    <ClCompile Include="ForwardRendererControls.cpp" />
-    <ClCompile Include="ForwardRendererSceneRenderer.cpp" />
+    <ClCompile Include="FeatureDemo.cpp" />
+    <ClCompile Include="FeatureDemoControls.cpp" />
+    <ClCompile Include="FeatureDemoSceneRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ForwardRenderer.h" />
-    <ClInclude Include="ForwardRendererSceneRenderer.h" />
+    <ClInclude Include="FeatureDemo.h" />
+    <ClInclude Include="FeatureDemoSceneRenderer.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Framework\Source\Falcor.vcxproj">
@@ -26,9 +26,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Data\DepthPass.ps.slang" />
+    <None Include="Data\DepthPass.vs.slang" />
+    <None Include="Data\FeatureDemo.ps.slang">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="Data\FeatureDemoCommon.hlsli" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Data\ForwardRenderer.slang">
+    <None Include="Data\FeatureDemo.vs.slang">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>
@@ -41,8 +46,7 @@
     <ProjectGuid>{ADDD1F96-AE44-40BA-9942-0F056F96FA4B}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>FeatureDemo</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
-    <ProjectName>ForwardRenderer</ProjectName>
+    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">

@@ -41,6 +41,7 @@ namespace Falcor
         case Vao::Topology::LineStrip:
             return GraphicsStateObject::PrimitiveType::Line;
         case Vao::Topology::TriangleList:
+        case Vao::Topology::TriangleListAdj:
         case Vao::Topology::TriangleStrip:
             return GraphicsStateObject::PrimitiveType::Triangle;
         default:

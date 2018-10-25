@@ -44,6 +44,10 @@
 #include "Utils/StringUtils.h"
 #include "API/Device.h"
 
+//So i can hash an int2
+#define GLM_ENABLE_EXPERIMENTAL1
+#include <glm/gtx/hash.hpp>
+
 namespace Falcor
 {
     static_assert(Mesh::kMaxBonesPerVertex == 4, "Fix the weights and IDs container below");
@@ -128,12 +132,13 @@ namespace Falcor
         }
     }
 
-    std::vector<uint32_t> createIndexBufferData(const aiMesh* pAiMesh)
+    std::vector<uint32_t> AssimpModelImporter::createIndexBufferData(const aiMesh* pAiMesh)
     {
         uint32_t indexCount = pAiMesh->mNumFaces * pAiMesh->mFaces[0].mNumIndices;
         std::vector<uint32_t> indices(indexCount);
         const uint32_t firstFacePrimSize = pAiMesh->mFaces[0].mNumIndices;
 
+        std::unordered_map<int2, int> halfEdges = std::unordered_map<int2, int>();
         for (uint32_t i = 0; i < pAiMesh->mNumFaces; i++)
         {
             uint32_t primSize = pAiMesh->mFaces[i].mNumIndices;
@@ -141,13 +146,48 @@ namespace Falcor
             for (uint32_t j = 0; j < firstFacePrimSize; j++)
             {
                 indices[i * firstFacePrimSize + j] = (uint32_t)(pAiMesh->mFaces[i].mIndices[j]);
-            }
+             }
+
+            int p0 = indices[3 * i];
+            int p1 = indices[3 * i + 1];
+            int p2 = indices[3 * i + 2];
+
+            halfEdges.insert(std::make_pair(int2(p0, p1), p2));
+            halfEdges.insert(std::make_pair(int2(p1, p2), p0));
+            halfEdges.insert(std::make_pair(int2(p2, p0), p1));
         }
 
-        return indices;
+        if (is_set(Model::LoadFlags::GenerateAdjacency, mFlags))
+        {
+          std::vector<uint32_t> adjIndices(6 * pAiMesh->mNumFaces);
+          for (uint32_t i = 0; i < indexCount; i += 3)
+          {
+            uint32_t adjStartIndex = 2 * i;
+            uint32_t p0 = indices[i];
+            uint32_t p1 = indices[i + 1];
+            uint32_t p2 = indices[i + 2];
+            int2 e0 = int2(p1, p0);
+            int2 e1 = int2(p2, p1);
+            int2 e2 = int2(p0, p2);
+
+            auto adjP0 = halfEdges.find(e0);
+            auto adjP1 = halfEdges.find(e1);
+            auto adjP2 = halfEdges.find(e2);
+            adjIndices[adjStartIndex] = p0;
+            adjIndices[adjStartIndex + 1] = adjP0 == halfEdges.end() ? -1 : adjP0->second;
+            adjIndices[adjStartIndex + 2] = p1;
+            adjIndices[adjStartIndex + 3] = adjP1 == halfEdges.end() ? -1 : adjP1->second;
+            adjIndices[adjStartIndex + 4] = p2;
+            adjIndices[adjStartIndex + 5] = adjP2 == halfEdges.end() ? -1 : adjP2->second;
+          }
+
+          return adjIndices;
+        }
+        else
+          return indices;
     }
 
-    void genTangentSpace(const aiMesh* pAiMesh)
+    void AssimpModelImporter::genTangentSpace(const aiMesh* pAiMesh)
     {
         if (pAiMesh->mFaces[0].mNumIndices == 3)
         {
@@ -766,7 +806,10 @@ namespace Falcor
     Mesh::SharedPtr AssimpModelImporter::createMesh(const aiMesh* pAiMesh)
     {
         uint32_t vertexCount = pAiMesh->mNumVertices;
+
         uint32_t indexCount = pAiMesh->mNumFaces * pAiMesh->mFaces[0].mNumIndices;
+        if(is_set(Model::LoadFlags::GenerateAdjacency, mFlags))
+          indexCount *= 2;
         auto pIB = createIndexBuffer(pAiMesh);
         BoundingBox boundingBox = createMeshBbox(pAiMesh);
 
@@ -810,8 +853,17 @@ namespace Falcor
             topology = Vao::Topology::LineList;
             break;
         case 3:
-            topology = Vao::Topology::TriangleList;
+        {
+            if(is_set(Model::LoadFlags::GenerateAdjacency, mFlags))
+            {
+              topology = Vao::Topology::TriangleListAdj;
+            }
+            else
+            {
+              topology = Vao::Topology::TriangleList;
+            }
             break;
+        }
         default:
             logError(std::string("Error when creating mesh. Unknown topology with " + std::to_string(pAiMesh->mFaces[0].mNumIndices) + " indices."));
             assert(0);

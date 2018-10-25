@@ -34,13 +34,19 @@
 #include "API/VertexLayout.h"
 #include "Data/VertexAttrib.h"
 #include "API/Buffer.h"
+#include "glm/common.hpp"
 #include "BinaryImage.hpp"
 #include "API/Formats.h"
 #include "API/Texture.h"
 #include "Graphics/Material/Material.h"
+#include "glm/geometric.hpp"
 #include "API/Device.h"
 #include <numeric>
 #include <cstring>
+
+//So i can hash an int2
+#define GLM_ENABLE_EXPERIMENTAL1
+#include <glm/gtx/hash.hpp>
 
 namespace Falcor
 {
@@ -66,11 +72,11 @@ namespace Falcor
         vec3 bitangent;
         if (abs(normal.x) > abs(normal.y))
         {
-            bitangent = vec3(normal.z, 0.f, -normal.x) / length(vec2(normal.x, normal.z));
+            bitangent = v3(normal.z, 0.f, -normal.x) / length(v2(normal.x, normal.z));
         }
         else
         {
-            bitangent = vec3(0.f, normal.z, -normal.y) / length(vec2(normal.y, normal.z));
+            bitangent = v3(0.f, normal.z, -normal.y) / length(v2(normal.y, normal.z));
         }
         return normalize(bitangent);
     }
@@ -172,26 +178,23 @@ namespace Falcor
         }
     }
 
-    static void setTexture(Material* pMaterial, Texture::SharedPtr pTexture, TextureType texType, const std::string& modelName)
+    static BasicMaterial::MapType getFalcorMapType(TextureType map)
     {
-        switch(texType)
+        switch(map)
         {
         case TextureType_Diffuse:
-            pMaterial->setBaseColorTexture(pTexture);
-            break;
+            return BasicMaterial::MapType::DiffuseMap;
+        case TextureType_Alpha:
+            return BasicMaterial::MapType::AlphaMap;
         case TextureType_Normal:
-            pMaterial->setNormalMap(pTexture);
-            break;
+            return BasicMaterial::MapType::NormalMap;
         case TextureType_Specular:
-            pMaterial->setSpecularTexture(pTexture);
-            break;
+            return BasicMaterial::MapType::SpecularMap;
         case TextureType_Displacement:
-            pMaterial->setHeightMap(pTexture);
-            break;
+            return BasicMaterial::MapType::HeightMap;
         default:
-            logWarning("Texture of Type " + std::to_string(texType) + " is not supported by the material system (model " + modelName + ")");
+            return BasicMaterial::MapType::Count;
         }
-
     }
 
     static const std::string getSemanticName(AttribType type)
@@ -536,20 +539,25 @@ namespace Falcor
         return true;
     }
     
-    ResourceFormat getFormatFromMapType(bool requestSrgb, ResourceFormat originalFormat, TextureType texType)
+    ResourceFormat getFormatFromMapType(bool requestSrgb, ResourceFormat originalFormat, BasicMaterial::MapType mapType)
     {
         if(requestSrgb == false)
         {
             return originalFormat;
         }
 
-        switch(texType)
+        switch(mapType)
         {
-        case TextureType_Diffuse:
-        case TextureType_Specular:
-        case TextureType_Environment:
+        case Falcor::BasicMaterial::DiffuseMap:
+        case Falcor::BasicMaterial::SpecularMap:
+        case Falcor::BasicMaterial::EmissiveMap:
             return srgbToLinearFormat(originalFormat);
+        case Falcor::BasicMaterial::NormalMap:
+        case Falcor::BasicMaterial::AlphaMap:
+        case Falcor::BasicMaterial::HeightMap:
+            return originalFormat;
         default:
+            should_not_get_here();
             return originalFormat;
         }
     }
@@ -792,17 +800,11 @@ namespace Falcor
                 }
             }
 
-            Buffer::BindFlags vbBindFlags = Buffer::BindFlags::Vertex;
-            if (is_set(flags, Model::LoadFlags::BuffersAsShaderResource))
-            {
-                vbBindFlags |= Buffer::BindFlags::ShaderResource;
-            }
-
             for (int32_t i = 0; i < numAttribs; ++i)
             {
                 if(buffers[i].shouldSkip == false)
                 {
-                    pVBs[i] = Buffer::create(buffers[i].vec.size(), vbBindFlags, Buffer::CpuAccess::None, buffers[i].vec.data());
+                    pVBs[i] = Buffer::create(buffers[i].vec.size(), Buffer::BindFlags::Vertex, Buffer::CpuAccess::None, buffers[i].vec.data());
                 }
             }
 
@@ -817,7 +819,7 @@ namespace Falcor
             for(int submesh = 0; submesh < numSubmeshes; submesh++)
             {
                 // create the material
-                Material::SharedPtr pMaterial = Material::create("");
+                BasicMaterial basicMaterial;
 
                 glm::vec3 ambient;
                 glm::vec4 diffuse;
@@ -825,16 +827,18 @@ namespace Falcor
                 float glossiness;
 
                 mStream >> ambient >> diffuse >> specular >> glossiness;
-                diffuse.w = 1 - diffuse.w;
-                pMaterial->setBaseColor(diffuse);
-                pMaterial->setSpecularParams(vec4(specular, glossiness));
+                basicMaterial.diffuseColor = glm::vec3(diffuse);
+                basicMaterial.opacity = 1 - diffuse.w;
+                basicMaterial.specularColor = specular;
+                basicMaterial.shininess = glossiness;
 
                 if(version >= 3)
                 {
                     float displacementCoeff;
                     float displacementBias;
                     mStream >> displacementCoeff >> displacementBias;
-                    pMaterial->setHeightScaleOffset(displacementCoeff, displacementBias);
+                    basicMaterial.bumpScale = displacementCoeff;
+                    basicMaterial.bumpOffset = displacementBias;
                 }
 
                 for(int i = 0; i < numTextureSlots; i++)
@@ -849,28 +853,35 @@ namespace Falcor
                     }
                     else if(texID != -1)
                     {
+                        BasicMaterial::MapType falcorType = getFalcorMapType(TextureType(i));
+                        if(BasicMaterial::MapType::Count == falcorType)
+                        {
+                            logWarning("Texture of Type " + std::to_string(i) + " is not supported by the material system (model " + mModelName + ")");
+                            continue;
+                        }
+
                         // Load the texture
                         TexSignature texSig;
-                        texSig.format = getFormatFromMapType(loadTexAsSrgb, texData[texID].format, TextureType(i));
+                        texSig.format = getFormatFromMapType(loadTexAsSrgb, texData[texID].format, falcorType);
                         texSig.pData = texData[texID].data.data();
                         // Check if we already created a matching texture
                         auto existingTex = textures.find(texSig);
                         if(existingTex != textures.end())
                         {
-                            setTexture(pMaterial.get(), existingTex->second, TextureType(i), mModelName);
+                            basicMaterial.pTextures[falcorType] = existingTex->second;
                         }
                         else
                         {
                             auto pTexture = Texture::create2D(texData[texID].width, texData[texID].height, texSig.format, 1, Texture::kMaxPossible, texSig.pData);
                             pTexture->setSourceFilename(texData[texID].name);
                             textures[texSig] = pTexture;
-                            setTexture(pMaterial.get(), pTexture, TextureType(i), mModelName);
+                            basicMaterial.pTextures[falcorType] = pTexture;
                         }
                     }
                 }
 
                 // Create material and check if it already exists
-                pMaterial = checkForExistingMaterial(pMaterial);
+                auto pMaterial = checkForExistingMaterial(basicMaterial.convertToMaterial());
 
                 int32_t numTriangles;
                 mStream >> numTriangles;
@@ -887,55 +898,91 @@ namespace Falcor
                 uint32_t ibSize = 3 * numTriangles * sizeof(uint32_t);
                 mStream.read(&indices[0], ibSize);
 
-
-                Buffer::BindFlags ibBindFlags = Buffer::BindFlags::Index;
-                if (is_set(flags, Model::LoadFlags::BuffersAsShaderResource))
-                {
-                    ibBindFlags |= Buffer::BindFlags::ShaderResource;
-                }
-                auto pIB = Buffer::create(ibSize, ibBindFlags, Buffer::CpuAccess::None, indices.data());
-
                 // Generate tangent space data if needed
-                if(genTangentForMesh)
+                if (genTangentForMesh)
                 {
-                    uint32_t texCrdCount = 0;
-                    glm::vec2* texCrd = nullptr;
-                    if(texCoordBufferIndex != kInvalidBufferIndex)
-                    {
-                        texCrdCount = pLayout->getBufferLayout(texCoordBufferIndex)->getStride() / sizeof(glm::vec2);
-                        texCrd = (glm::vec2*)buffers[texCoordBufferIndex].vec.data();
-                    }
+                  uint32_t texCrdCount = 0;
+                  glm::vec2* texCrd = nullptr;
+                  if (texCoordBufferIndex != kInvalidBufferIndex)
+                  {
+                    texCrdCount = pLayout->getBufferLayout(texCoordBufferIndex)->getStride() / sizeof(glm::vec2);
+                    texCrd = (glm::vec2*)buffers[texCoordBufferIndex].vec.data();
+                  }
 
-                    ResourceFormat posFormat = pLayout->getBufferLayout(positionBufferIndex)->getElementFormat(0);
+                  ResourceFormat posFormat = pLayout->getBufferLayout(positionBufferIndex)->getElementFormat(0);
 
-                    if (posFormat == ResourceFormat::RGB32Float)
-                    {
-                        generateSubmeshTangentData<glm::vec3>(indices, numVertices, (glm::vec3*)buffers[positionBufferIndex].vec.data(), (glm::vec3*)buffers[normalBufferIndex].vec.data(), texCrd, texCrdCount, (glm::vec3*)buffers[bitangentBufferIndex].vec.data());
-                    }
-                    else if (posFormat == ResourceFormat::RGBA32Float)
-                    {
-                        generateSubmeshTangentData<glm::vec4>(indices, numVertices, (glm::vec4*)buffers[positionBufferIndex].vec.data(), (glm::vec3*)buffers[normalBufferIndex].vec.data(), texCrd, texCrdCount, (glm::vec3*)buffers[bitangentBufferIndex].vec.data());
-                    }
+                  if (posFormat == ResourceFormat::RGB32Float)
+                  {
+                    generateSubmeshTangentData<glm::vec3>(indices, numVertices, (glm::vec3*)buffers[positionBufferIndex].vec.data(), (glm::vec3*)buffers[normalBufferIndex].vec.data(), texCrd, texCrdCount, (glm::vec3*)buffers[bitangentBufferIndex].vec.data());
+                  }
+                  else if (posFormat == ResourceFormat::RGBA32Float)
+                  {
+                    generateSubmeshTangentData<glm::vec4>(indices, numVertices, (glm::vec4*)buffers[positionBufferIndex].vec.data(), (glm::vec3*)buffers[normalBufferIndex].vec.data(), texCrd, texCrdCount, (glm::vec3*)buffers[bitangentBufferIndex].vec.data());
+                  }
 
-                    pVBs[bitangentBufferIndex] = Buffer::create(buffers[bitangentBufferIndex].vec.size(), Buffer::BindFlags::Vertex, Buffer::CpuAccess::None, buffers[bitangentBufferIndex].vec.data());
+                  pVBs[bitangentBufferIndex] = Buffer::create(buffers[bitangentBufferIndex].vec.size(), Buffer::BindFlags::Vertex, Buffer::CpuAccess::None, buffers[bitangentBufferIndex].vec.data());
                 }
-                
 
                 // Calculate the bounding-box
                 glm::vec3 max, min;
-                for(uint32_t i = 0; i < numIndices; i++)
+                for (uint32_t i = 0; i < numIndices; i++)
                 {
-                    uint32_t vertexID = indices[i];
-                    uint8_t* pVertex = (pLayout->getBufferLayout(positionBufferIndex)->getStride() * vertexID) + buffers[positionBufferIndex].vec.data();
+                  uint32_t vertexID = indices[i];
+                  uint8_t* pVertex = (pLayout->getBufferLayout(positionBufferIndex)->getStride() * vertexID) + buffers[positionBufferIndex].vec.data();
 
-                    float* pPosition = (float*)pVertex;
+                  float* pPosition = (float*)pVertex;
 
-                    glm::vec3 xyz(pPosition[0], pPosition[1], pPosition[2]);
-                    min = glm::min(min, xyz);
-                    max = glm::max(max, xyz);
+                  glm::vec3 xyz(pPosition[0], pPosition[1], pPosition[2]);
+                  min = glm::min(min, xyz);
+                  max = glm::max(max, xyz);
+                }
+                BoundingBox box = BoundingBox::fromMinMax(min, max);
+
+                //Generate Adjacency information if required
+                if (is_set(Model::LoadFlags::GenerateAdjacency, flags))
+                {
+                  //Determine half edges
+                  std::unordered_map<int2, int> halfEdges = std::unordered_map<int2, int>();
+                  for(uint32_t i = 0; i < numIndices; i += 3)
+                  {
+                    int p0 = indices[i];
+                    int p1 = indices[i + 1];
+                    int p2 = indices[i + 2];
+
+                    halfEdges.insert(std::make_pair(int2(p0, p1), p2));
+                    halfEdges.insert(std::make_pair(int2(p1, p2), p0));
+                    halfEdges.insert(std::make_pair(int2(p2, p0), p1));         
+                  }
+
+                  //save adjacncy indices
+                  std::vector<uint32_t> adjIndices(2 * numIndices);
+                  for (uint32_t i = 0; i < numIndices; i += 3)
+                  {
+                    uint32_t adjStartIndex = 2 * i;
+                    uint32_t p0 = indices[i];
+                    uint32_t p1 = indices[i + 1];
+                    uint32_t p2 = indices[i + 2];
+                    int2 e0 = int2(p1, p0);
+                    int2 e1 = int2(p2, p1);
+                    int2 e2 = int2(p0, p2);
+
+                    auto adjP0 = halfEdges.find(e0);
+                    auto adjP1 = halfEdges.find(e1);
+                    auto adjP2 = halfEdges.find(e2);
+                    adjIndices[adjStartIndex] = p0;
+                    adjIndices[adjStartIndex + 1] = adjP0 == halfEdges.end() ? -1 : adjP0->second;
+                    adjIndices[adjStartIndex + 2] = p1;
+                    adjIndices[adjStartIndex + 3] = adjP1 == halfEdges.end() ? -1 : adjP1->second;
+                    adjIndices[adjStartIndex + 4] = p2;
+                    adjIndices[adjStartIndex + 5] = adjP2 == halfEdges.end() ? -1 : adjP2->second;
+                  }
+
+                  indices = adjIndices;
+                  ibSize *= 2;
+                  numIndices *= 2;
                 }
 
-                BoundingBox box = BoundingBox::fromMinMax(min, max);
+                auto pIB = Buffer::create(ibSize, Buffer::BindFlags::Index, Buffer::CpuAccess::None, indices.data());
 
                 // create the mesh
                 auto pMesh = Mesh::create(pVBs, numVertices, pIB, numIndices, pLayout, Vao::Topology::TriangleList, pMaterial, box, false);

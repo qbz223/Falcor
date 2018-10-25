@@ -91,7 +91,9 @@ namespace Falcor
         Buffer::SharedPtr createVertexBuffer(const aiMesh* pAiMesh, const VertexBufferLayout* pLayout, const uint8_t* pBoneIds, const vec4* pBoneWeights);
         void loadTextures(const aiMaterial* pAiMaterial, const std::string& folder, Material* pMaterial, bool isObjFile, bool useSrgb);
         Material::SharedPtr createMaterial(const aiMaterial* pAiMaterial, const std::string& folder, bool isObjFile, bool useSrgb);
-
+        //Hacked in for index buffer
+        std::vector<uint32_t> createIndexBufferData(const aiMesh* pAiMesh);
+        void genTangentSpace(const aiMesh* pAiMesh);
         // Checks whether a node or its name corresponds to a used bone or node in the skeleton hierarchy
         bool isUsedNode(const aiNode* pNode) const;
 

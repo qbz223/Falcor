@@ -14,8 +14,7 @@
     <ProjectGuid>{0A6AC638-6567-49F9-B328-66BA201C74B6}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>PostProcess</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
-    <ProjectName>HDRToneMapping</ProjectName>
+    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -80,10 +79,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="HDRToneMapping.cpp" />
+    <ClCompile Include="PostProcess.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="HDRToneMapping.h" />
+    <ClInclude Include="PostProcess.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Data\PostProcess.ps.glsl" />
+    <None Include="Data\PostProcess.vs.glsl" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\Framework\Source\Falcor.vcxproj">
@@ -91,7 +94,11 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Data\HDRToneMapping.hlsl">
+    <FxCompile Include="Data\PostProcess.ps.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Data\PostProcess.vs.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>

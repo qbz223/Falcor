@@ -50,6 +50,7 @@ namespace Falcor
             LineList,
             LineStrip,
             TriangleList,
+            TriangleListAdj,
             TriangleStrip
         };
 

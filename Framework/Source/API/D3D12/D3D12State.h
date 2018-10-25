@@ -74,6 +74,8 @@ namespace Falcor
             return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
         case Vao::Topology::TriangleList:
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+        case Vao::Topology::TriangleListAdj:
+            return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ;
         case Vao::Topology::TriangleStrip:
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
         default:
