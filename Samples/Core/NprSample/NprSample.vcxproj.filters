@@ -25,10 +25,7 @@
     <FxCompile Include="Data\ImageOperatorPass.ps.hlsl">
       <Filter>Data</Filter>
     </FxCompile>
-    <FxCompile Include="Data\EdgeDetect.gs.hlsl">
-      <Filter>Data</Filter>
-    </FxCompile>
-    <FxCompile Include="Data\EdgeRender.ps.hlsl">
+    <FxCompile Include="Data\GenTonalArtMap.cs.hlsl">
       <Filter>Data</Filter>
     </FxCompile>
   </ItemGroup>
@@ -36,5 +33,7 @@
     <None Include="Data\NprCommon.hlsli">
       <Filter>Data</Filter>
     </None>
+    <None Include="Data\EdgeDetect.gs.hlsl" />
+    <None Include="Data\EdgeRender.ps.hlsl" />
   </ItemGroup>
 </Project>

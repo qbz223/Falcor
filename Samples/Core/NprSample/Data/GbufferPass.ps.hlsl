@@ -1,4 +1,3 @@
-__import DefaultVS;
 #include "NprCommon.hlsli"
 
 struct PS_OUT

@@ -3,6 +3,9 @@ __import DefaultVS;
 __import Shading;
 #include "VertexAttrib.h"
 
+Texture2D gHatchTex;
+SamplerState gSampler;
+
 cbuffer NprShadingData
 {
   //only uses xyz but needs to be aligned
@@ -12,6 +15,8 @@ cbuffer NprShadingData
   float warmAlbedoMix;
   float3 coolColor;
   float coolAlbedoMix;
+  int hatchDebugIndex;
+  float3 cameraPos;
 }
 
 #if !defined _LIGHT_COUNT
@@ -59,6 +64,27 @@ float3 calcColor(float3 posW, float3 normalW, float3 bitanW, float2 texC)
   return lerp(objCool, objWarm, nDotL);
 #endif
 
+#ifdef _HATCHDEBUG
+  //return gHatchTex.Sample(gSampler, float3(texC, hatchDebugIndex));
+  return gHatchTex.Sample(gSampler, texC);
+#endif
+
+#ifdef _HATCH
+  const int numHatchTex = 4;
+  float distance = length(cameraPos - posW) * 0.25f;
+  int hatchIndex = 0;
+  nDotL = (nDotL + 1) / 2.0f;
+  if (nDotL > 0.75f)
+      hatchIndex = 0;
+  else if (nDotL > 0.5f)
+      hatchIndex = 1;
+  else if (nDotL > 0.25f)
+      hatchIndex = 2;
+  else
+      hatchIndex = 3;
+
+  return gHatchTex.SampleLevel(gSampler, float3(texC, hatchIndex), distance);
+#endif
 //If no defines, is edge only
   return float3(1, 1, 1);
 }

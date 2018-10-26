@@ -142,7 +142,7 @@ namespace Falcor
         if(gpDevice)
         {
             if (mpGui->onMouseEvent(mouseEvent)) return;
-            if (mpPixelZoom->onMouseEvent(mouseEvent)) return;
+            //if (mpPixelZoom->onMouseEvent(mouseEvent)) return;
         }
         onMouseEvent(mouseEvent);
     }

@@ -54,6 +54,40 @@ class NprSample : public Sample
     NprSceneRenderer::UniquePtr mpSceneRenderer;
     vec2 mCameraDepthRange = vec2(0.001f, 100.0f);
 
+    struct TonalArtMapGenPass
+    {
+        ComputeState::SharedPtr pState;
+        ComputeVars::SharedPtr pVars;
+        Texture::SharedPtr pTex;
+    } mTonalArtMapGenData;
+
+    struct TonalArtMapGenParameters
+    {
+        const uint minNumLinesPerThread = 2;
+        const uint maxNumLinesPerThread = 6;
+        const float minLineThickness = 2;
+        const float maxLineThickness = 10;
+        const float minLineWidth = 0.3f;
+    } mTonalArtMapGenParameters;
+
+    struct TonalArtMapGenData
+    {
+        float lineThickness;
+        float lineWidth;
+        float lineY; //[0,1] to determine what Y coord for line within thread's pixels
+        float lineX; //same for x
+    };
+
+    struct HatchingData
+    {
+        //A lot of this is old from when I was loading hatch textures as pngs
+        //Could use some changing no longer relevant with the tonal art map 
+        //generation approach 
+        static const uint32_t numHatchTex = 4;
+        Texture::SharedPtr pHatchTexArray;
+        Texture::SharedPtr pHatchTex[numHatchTex];
+    } mHatchingData;
+
     struct ColorPass
     {
       GraphicsState::SharedPtr pState;
@@ -81,7 +115,7 @@ class NprSample : public Sample
     struct ImageOperatorPassData
     {
       glm::int2 textureDimensions;
-      float normalThreshold = 25.0f;
+      float normalThreshold = 175.0f;
       float depthThreshold = 0.001f;
     } mImagePassData;
 
@@ -103,10 +137,10 @@ class NprSample : public Sample
 
     enum EdgeMode { Image = 0, Geometry = 1 };
     const static Gui::DropdownList skEdgeModeList;
-    EdgeMode mEdgeMode = EdgeMode::Geometry;
+    EdgeMode mEdgeMode = EdgeMode::Image;
 
     //TODO pass in a light index rather than just doing nDotL0
-    enum ShadingMode { EdgeOnly = 0, Albedo = 1, NDotL0 = 2, Toon = 3, Gooch = 4, ShadingModeCount = 5 };
+    enum ShadingMode { EdgeOnly = 0, Albedo = 1, NDotL0 = 2, Toon = 3, Gooch = 4, Hatch = 5, ShadingModeCount = 6 };
     const static Gui::DropdownList skShadingModeList;
     ShadingMode mShadingMode = ShadingMode::EdgeOnly;
     static const uint32_t skNumThresholds = 3;
@@ -120,11 +154,13 @@ class NprSample : public Sample
       float warmAlbedoMix = 0.5f;
       float3 coolColor = float3(.62f, .58f, 1);
       float coolAlbedoMix = 0.25f;
+      int hatchDebugIndex = 0;
+      float3 camPos;
     } mShadingData;
 
     enum DebugMode { None = 0, Depth = 1, Normal = 2, 
                       EdgeUv = 3, EdgeU = 4, EdgeV = 5, 
-                       DebugModeCount = 8};
+                     HatchDebug = 6, DebugModeCount = 7};
     const static Gui::DropdownList skDebugModeList;
     struct DebugControls
     {

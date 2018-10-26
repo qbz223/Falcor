@@ -26,8 +26,9 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ***************************************************************************/
 #include "NprSample.h"
+#include <random>
 
-const std::string NprSample::skDefaultScene = "Scenes/MultiModel.fscene";
+const std::string NprSample::skDefaultScene = "Scenes/Bistro/Bistro_Interior.fscene";
 
 const Gui::DropdownList NprSample::skEdgeModeList = 
 {
@@ -41,7 +42,8 @@ const Gui::DropdownList NprSample::skShadingModeList =
   { (int32_t)ShadingMode::Albedo, "Albedo" },
   { (int32_t)ShadingMode::NDotL0, "N dot L0" },
   { (int32_t)ShadingMode::Toon, "Toon" },
-  { (int32_t)ShadingMode::Gooch, "Gooch" }
+  { (int32_t)ShadingMode::Gooch, "Gooch" },
+  { (int32_t)ShadingMode::Hatch, "Hatch"}
 };
 
 const Gui::DropdownList NprSample::skDebugModeList = 
@@ -52,6 +54,7 @@ const Gui::DropdownList NprSample::skDebugModeList =
   { (int32_t)DebugMode::EdgeUv, "EdgeUv" },
   { (int32_t)DebugMode::EdgeU, "EdgeU" },
   { (int32_t)DebugMode::EdgeV, "EdgeV" },
+  { (int32_t)DebugMode::HatchDebug, "Hatch" }
 };
 
 const Gui::DropdownList NprSample::skImageOperatorList =
@@ -156,6 +159,8 @@ void NprSample::onGuiRender()
       geoProg->removeDefine("_DRAW_NDOTL");
       gBufProg->removeDefine("_GOOCH");
       geoProg->removeDefine("_GOOCH");
+      gBufProg->removeDefine("_HATCH");
+      geoProg->removeDefine("_HATCH");
 
       switch(mShadingMode)
       {
@@ -176,6 +181,10 @@ void NprSample::onGuiRender()
       case ShadingMode::Gooch:
         gBufProg->addDefine("_GOOCH");
         geoProg->addDefine("_GOOCH");
+        break;
+      case ShadingMode::Hatch:
+        gBufProg->addDefine("_HATCH");
+        geoProg->addDefine("_HATCH");
       default:
         should_not_get_here();
       }
@@ -226,6 +235,7 @@ void NprSample::onGuiRender()
       pGeoProg->removeDefine("_EDGE_UV");
       pGeoProg->removeDefine("_EDGE_U");
       pGeoProg->removeDefine("_EDGE_V");
+      pGbufProg->removeDefine("_HATCHDEBUG");
 
       switch(mDebugControls.mode)
       {
@@ -246,9 +256,17 @@ void NprSample::onGuiRender()
         case EdgeV:
           pGeoProg->addDefine("_EDGE_V");
           break;
+        case HatchDebug:
+          pGbufProg->addDefine("_HATCHDEBUG");
+          break;
         default:
           should_not_get_here();
       }
+    }
+
+    if (mDebugControls.mode == DebugMode::HatchDebug)
+    {
+        mpGui->addIntVar("Index", mShadingData.hatchDebugIndex, 0, mHatchingData.numHatchTex - 1);
     }
 
     if(mDebugControls.mode == Depth)
@@ -258,6 +276,11 @@ void NprSample::onGuiRender()
     }
     mpGui->endGroup();
   }
+}
+
+static float randUnitFloat()
+{
+    return static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 }
 
 void NprSample::onLoad()
@@ -298,18 +321,83 @@ void NprSample::onLoad()
   mDebugControls.pDebugPass = FullScreenPass::create("DebugMaps.ps.hlsl");
   mDebugControls.pVars = GraphicsVars::create(mDebugControls.pDebugPass->getProgram()->getActiveVersion()->getReflector());
 
+  //Hatching 
+  Falcor::Resource::BindFlags flags = Resource::BindFlags::ShaderResource | Resource::BindFlags::RenderTarget;
+  mHatchingData.pHatchTexArray = Texture::create2D(512, 512, ResourceFormat::RGBA32Float, mHatchingData.numHatchTex, 10, nullptr, flags);
+  for (uint32_t i = 0; i < mHatchingData.numHatchTex; ++i)
+  {
+      std::string filename = "Hatch" + std::to_string(i) + ".png";
+      mHatchingData.pHatchTex[i] = createTextureFromFile(filename, false, false);
+      mpRenderContext->blit(mHatchingData.pHatchTex[i]->getSRV(0), mHatchingData.pHatchTexArray->getRTV(0, i, 1));
+  }
+  Sampler::Desc hatchSamplerDesc;
+  hatchSamplerDesc.setFilterMode(Sampler::Filter::Linear, Sampler::Filter::Linear, Sampler::Filter::Linear);
+  hatchSamplerDesc.setAddressingMode(Sampler::AddressMode::Wrap, Sampler::AddressMode::Wrap, Sampler::AddressMode::Wrap);
+  Sampler::SharedPtr pHatchSampler = Sampler::create(hatchSamplerDesc);
+  mGBuffer.pVars->setSampler("gSampler", pHatchSampler);
+
+  //Cs that generates the hash textures
+  mTonalArtMapGenData.pState = ComputeState::create();
+  auto tonalArtGenProg = ComputeProgram::createFromFile("GenTonalArtMap.cs.hlsl");
+  mTonalArtMapGenData.pState->setProgram(tonalArtGenProg);
+  mTonalArtMapGenData.pVars = ComputeVars::create(tonalArtGenProg->getActiveVersion()->getReflector());
+  flags |= Resource::BindFlags::UnorderedAccess;
+  mTonalArtMapGenData.pTex = Texture::create2D(512, 512, ResourceFormat::RGBA32Float, 1, 1, nullptr, flags);
+  mTonalArtMapGenData.pVars->setTexture("gTonalArtMap", mTonalArtMapGenData.pTex);
+  mpRenderContext->clearRtv(mTonalArtMapGenData.pTex->getRTV().get(), float4(1, 1, 1, 1));
+
+  StructuredBuffer::SharedPtr lineCountBuffer = StructuredBuffer::create(tonalArtGenProg, "gLineCounts", 16);
+  std::vector<uint> lineCounts;
+  int totalLines = 0;
+  for (uint i = 0; i < 16; ++i)
+  {
+      float r = randUnitFloat();
+      int numLines = (int)round(lerp((float)mTonalArtMapGenParameters.minNumLinesPerThread, (float)mTonalArtMapGenParameters.maxNumLinesPerThread, r));
+      totalLines += numLines;
+      lineCounts.push_back(numLines);
+  }
+  lineCountBuffer->setBlob(lineCounts.data(), 0, sizeof(uint) * 16);
+  mTonalArtMapGenData.pVars->setStructuredBuffer("gLineCounts", lineCountBuffer);
+
+  StructuredBuffer::SharedPtr lineDataBuffer = StructuredBuffer::create(tonalArtGenProg, "gLineData", totalLines);
+  std::vector<TonalArtMapGenData> lineData;
+  for (int i = 0; i < totalLines; ++i)
+  {
+      TonalArtMapGenData data;
+      float thickR = randUnitFloat();
+      float widthR = randUnitFloat();
+      data.lineThickness = lerp(mTonalArtMapGenParameters.minLineThickness, mTonalArtMapGenParameters.maxLineThickness, thickR);
+      data.lineWidth = lerp(mTonalArtMapGenParameters.minLineWidth, 1.0f, widthR);
+      data.lineY = randUnitFloat();
+      data.lineX = randUnitFloat();
+      lineData.push_back(data);
+  }
+  lineDataBuffer->setBlob(lineData.data(), 0, sizeof(TonalArtMapGenData) * totalLines);
+  mTonalArtMapGenData.pVars->setStructuredBuffer("gLineData", lineDataBuffer);
+
+  //Generate hash textures
+  mpRenderContext->pushComputeState(mTonalArtMapGenData.pState);
+  mpRenderContext->pushComputeVars(mTonalArtMapGenData.pVars);
+  mpRenderContext->dispatch(1, 1, 1);
+  mpRenderContext->popComputeVars();
+  mpRenderContext->popComputeState();
+
+  mHatchingData.pHatchTexArray->generateMips();
+  mHatchingData.pHatchTexArray->getMipCount();
+
   loadScene(skDefaultScene);
 }
 
 void NprSample::onFrameRender()
 {
-	const glm::vec4 clearColor(0.38f, 0.52f, 0.10f, 1);
- 	mpRenderContext->clearFbo(mpDefaultFBO.get(), clearColor, 1.0f, 0, FboAttachmentType::All);
+  const glm::vec4 clearColor(0.38f, 0.52f, 0.10f, 1);
+  mpRenderContext->clearFbo(mpDefaultFBO.get(), clearColor, 1.0f, 0, FboAttachmentType::All);
   mpRenderContext->clearFbo(mGBuffer.pState->getFbo().get(), clearColor, 1.0f, 0, FboAttachmentType::All);
 
   if(mpSceneRenderer)
   {
     mpSceneRenderer->update(mCurrentTime);
+    mShadingData.camPos = mpScene->getActiveCamera()->getPosition();
 
     if(mDebugControls.mode == Depth || mDebugControls.mode == Normal)
     {
@@ -417,6 +505,7 @@ void NprSample::createAndSetGBufferFbo()
 void NprSample::renderGBuffer()
 {
   mGBuffer.pVars->getConstantBuffer("NprShadingData")->setBlob(&mShadingData, 0, sizeof(NprShadingData));
+  mGBuffer.pVars->setTexture("gHatchTex", mTonalArtMapGenData.pTex);
 
   mpRenderContext->pushGraphicsState(mGBuffer.pState);
   mpRenderContext->pushGraphicsVars(mGBuffer.pVars);
