@@ -3,7 +3,7 @@ __import DefaultVS;
 __import Shading;
 #include "VertexAttrib.h"
 
-Texture2D gHatchTex;
+Texture2DArray gHatchTex;
 SamplerState gSampler;
 
 cbuffer NprShadingData
@@ -41,7 +41,7 @@ float3 calcColor(float3 posW, float3 normalW, float3 bitanW, float2 texC)
   return albedo;
 #endif
 
-  float nDotL = dot(normalW, gLights[0].worldDir);
+  float nDotL = dot(normalize(normalW), normalize(gLights[0].worldDir));
 #ifdef _DRAW_NDOTL
   return nDotL.xxx;
 #endif
@@ -66,7 +66,7 @@ float3 calcColor(float3 posW, float3 normalW, float3 bitanW, float2 texC)
 
 #ifdef _HATCHDEBUG
   //return gHatchTex.Sample(gSampler, float3(texC, hatchDebugIndex));
-  return gHatchTex.Sample(gSampler, texC);
+  return gHatchTex.Sample(gSampler, float3(texC, hatchDebugIndex));
 #endif
 
 #ifdef _HATCH
@@ -74,14 +74,18 @@ float3 calcColor(float3 posW, float3 normalW, float3 bitanW, float2 texC)
   float distance = length(cameraPos - posW) * 0.25f;
   int hatchIndex = 0;
   nDotL = (nDotL + 1) / 2.0f;
-  if (nDotL > 0.75f)
-      hatchIndex = 0;
-  else if (nDotL > 0.5f)
-      hatchIndex = 1;
-  else if (nDotL > 0.25f)
-      hatchIndex = 2;
+  if (nDotL > 0.925f)
+    //return float4(nDotL/100.0f, 0.f, 0, 1);
+    hatchIndex = 0;
+  else if (nDotL > 0.7f)
+    //  return float4(0, 1, 0, 1);
+    hatchIndex = 1;
+  else if (nDotL > 0.35f)
+    //  return float4(0, 0, 1, 1);
+    hatchIndex = 2;
   else
-      hatchIndex = 3;
+    //  return float4(1, 1, 0, 1);
+    hatchIndex = 3;
 
   return gHatchTex.SampleLevel(gSampler, float3(texC, hatchIndex), distance);
 #endif

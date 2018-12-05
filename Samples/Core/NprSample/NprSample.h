@@ -33,7 +33,7 @@ using namespace Falcor;
 
 class NprSample : public Sample
 {
-  public:
+public:
     void onLoad() override;
     void onFrameRender() override;
     void onShutdown() override;
@@ -43,7 +43,7 @@ class NprSample : public Sample
     void onDataReload() override;
     void onGuiRender() override;
 
-  private:
+private:
     const static std::string skDefaultScene;
     void loadScene(std::string filename);
     void createAndSetGBufferFbo();
@@ -61,14 +61,29 @@ class NprSample : public Sample
         Texture::SharedPtr pTex;
     } mTonalArtMapGenData;
 
+    struct TonalArtMapGenCbuffer
+    {
+        uint texIndex = 0;
+    };
+
     struct TonalArtMapGenParameters
     {
         const uint minNumLinesPerThread = 2;
         const uint maxNumLinesPerThread = 6;
         const float minLineThickness = 2;
         const float maxLineThickness = 10;
-        const float minLineWidth = 0.3f;
-    } mTonalArtMapGenParameters;
+        const float minLineWidth = 0.3f; //No max b/c max is just 1
+        const bool vertical = false;
+    };
+
+    static const uint numHatchTex = 4;
+    TonalArtMapGenParameters mTonalArtMapGenParameters[numHatchTex] = {
+    //minlines, max, minThick,      max, minWidth, vertical 
+        {4,     8,      2.f,      4.f,     0.2f,   false},
+        {5,     12,     2.f,      4.f,     0.2f,    false},
+        {6,     12,     2.f,      4.f,     0.2f,    true},
+        {7,     16,     2.f,      4.f,     0.2f,    true}
+    };
 
     struct TonalArtMapGenData
     {
@@ -84,8 +99,7 @@ class NprSample : public Sample
         //Could use some changing no longer relevant with the tonal art map 
         //generation approach 
         static const uint32_t numHatchTex = 4;
-        Texture::SharedPtr pHatchTexArray;
-        Texture::SharedPtr pHatchTex[numHatchTex];
+        //Texture::SharedPtr pHatchTexArray;
     } mHatchingData;
 
     struct ColorPass

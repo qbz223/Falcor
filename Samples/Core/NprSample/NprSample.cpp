@@ -323,13 +323,6 @@ void NprSample::onLoad()
 
   //Hatching 
   Falcor::Resource::BindFlags flags = Resource::BindFlags::ShaderResource | Resource::BindFlags::RenderTarget;
-  mHatchingData.pHatchTexArray = Texture::create2D(512, 512, ResourceFormat::RGBA32Float, mHatchingData.numHatchTex, 10, nullptr, flags);
-  for (uint32_t i = 0; i < mHatchingData.numHatchTex; ++i)
-  {
-      std::string filename = "Hatch" + std::to_string(i) + ".png";
-      mHatchingData.pHatchTex[i] = createTextureFromFile(filename, false, false);
-      mpRenderContext->blit(mHatchingData.pHatchTex[i]->getSRV(0), mHatchingData.pHatchTexArray->getRTV(0, i, 1));
-  }
   Sampler::Desc hatchSamplerDesc;
   hatchSamplerDesc.setFilterMode(Sampler::Filter::Linear, Sampler::Filter::Linear, Sampler::Filter::Linear);
   hatchSamplerDesc.setAddressingMode(Sampler::AddressMode::Wrap, Sampler::AddressMode::Wrap, Sampler::AddressMode::Wrap);
@@ -342,48 +335,117 @@ void NprSample::onLoad()
   mTonalArtMapGenData.pState->setProgram(tonalArtGenProg);
   mTonalArtMapGenData.pVars = ComputeVars::create(tonalArtGenProg->getActiveVersion()->getReflector());
   flags |= Resource::BindFlags::UnorderedAccess;
-  mTonalArtMapGenData.pTex = Texture::create2D(512, 512, ResourceFormat::RGBA32Float, 1, 1, nullptr, flags);
+  mTonalArtMapGenData.pTex = Texture::create2D(512, 512, ResourceFormat::RGBA32Float, numHatchTex, 10, nullptr, flags);
   mTonalArtMapGenData.pVars->setTexture("gTonalArtMap", mTonalArtMapGenData.pTex);
-  mpRenderContext->clearRtv(mTonalArtMapGenData.pTex->getRTV().get(), float4(1, 1, 1, 1));
+  mpRenderContext->clearRtv(mTonalArtMapGenData.pTex->getRTV().get(), float4(1.f, 1.f, 1.f, 1));
 
   StructuredBuffer::SharedPtr lineCountBuffer = StructuredBuffer::create(tonalArtGenProg, "gLineCounts", 16);
-  std::vector<uint> lineCounts;
-  int totalLines = 0;
-  for (uint i = 0; i < 16; ++i)
+  //Create line data buffer for the largest amount of lines there could possbily be 
+  StructuredBuffer::SharedPtr lineDataBuffer = StructuredBuffer::create(tonalArtGenProg, "gLineData", mTonalArtMapGenParameters[numHatchTex - 1].maxNumLinesPerThread * 16);
+  auto intermediateTex = Texture::create2D(512, 512, ResourceFormat::RGBA32Float, 1, 1, nullptr, flags);
+  for (uint j = 0; j < numHatchTex; ++j)
   {
-      float r = randUnitFloat();
-      int numLines = (int)round(lerp((float)mTonalArtMapGenParameters.minNumLinesPerThread, (float)mTonalArtMapGenParameters.maxNumLinesPerThread, r));
-      totalLines += numLines;
-      lineCounts.push_back(numLines);
-  }
-  lineCountBuffer->setBlob(lineCounts.data(), 0, sizeof(uint) * 16);
-  mTonalArtMapGenData.pVars->setStructuredBuffer("gLineCounts", lineCountBuffer);
+      //Determine line count per thread
+      std::vector<uint> lineCounts;
+      int totalLines = 0;
+      for (uint i = 0; i < 16; ++i)
+      {
+          float r = randUnitFloat();
+          int numLines = (int)round(lerp((float)mTonalArtMapGenParameters[j].minNumLinesPerThread, (float)mTonalArtMapGenParameters[j].maxNumLinesPerThread, r));
+          totalLines += numLines;
+          lineCounts.push_back(numLines);
+      }
+      //Send line counts to shader
+      lineCountBuffer->setBlob(lineCounts.data(), 0, sizeof(uint) * 16);
+      mTonalArtMapGenData.pVars->setStructuredBuffer("gLineCounts", lineCountBuffer);
 
-  StructuredBuffer::SharedPtr lineDataBuffer = StructuredBuffer::create(tonalArtGenProg, "gLineData", totalLines);
-  std::vector<TonalArtMapGenData> lineData;
-  for (int i = 0; i < totalLines; ++i)
+      //Determine line parameters 
+      std::vector<TonalArtMapGenData> lineData;
+      for (int i = 0; i < totalLines; ++i)
+      {
+          TonalArtMapGenData data;
+          float thickR = randUnitFloat();
+          float widthR = randUnitFloat();
+          data.lineThickness = lerp(mTonalArtMapGenParameters[j].minLineThickness, mTonalArtMapGenParameters[j].maxLineThickness, thickR);
+          data.lineWidth = lerp(mTonalArtMapGenParameters[j].minLineWidth, 1.0f, widthR);
+          data.lineY = randUnitFloat();
+          data.lineX = randUnitFloat();
+          lineData.push_back(data);
+      }
+      //Send line parameters to shader
+      lineDataBuffer->setBlob(lineData.data(), 0, sizeof(TonalArtMapGenData) * totalLines);
+      mTonalArtMapGenData.pVars->setStructuredBuffer("gLineData", lineDataBuffer);
+
+      //Set cbuffer
+      TonalArtMapGenCbuffer cbuf = { j };
+      mTonalArtMapGenData.pVars->getConstantBuffer("DataPerRun")->setBlob(&cbuf, 0, sizeof(TonalArtMapGenCbuffer));
+
+      //Generate texture
+      mpRenderContext->pushComputeState(mTonalArtMapGenData.pState);
+      mpRenderContext->pushComputeVars(mTonalArtMapGenData.pVars);
+      mpRenderContext->resourceBarrier(mTonalArtMapGenData.pTex.get(), Falcor::Resource::State::UnorderedAccess);
+      mpRenderContext->dispatch(1, 1, 1);
+      mpRenderContext->popComputeVars();
+
+      if (mTonalArtMapGenParameters[j].vertical)
+      {
+          mpRenderContext->resourceBarrier(mTonalArtMapGenData.pTex.get(), Falcor::Resource::State::CopySource);
+          mpRenderContext->resourceBarrier(intermediateTex.get(), Falcor::Resource::State::CopyDest);
+          
+          mpRenderContext->copySubresource(intermediateTex.get(), 0, mTonalArtMapGenData.pTex.get(), mTonalArtMapGenData.pTex->getSubresourceIndex(j, 0));
+          mpRenderContext->resourceBarrier(intermediateTex.get(), Falcor::Resource::State::UnorderedAccess);
+          mpRenderContext->getComputeState()->getProgram()->addDefine("_VERTICAL");
+          auto vertVars = ComputeVars::create(mpRenderContext->getComputeState()->getProgram()->getActiveVersion()->getReflector());
+          vertVars->setTexture("gPrevTex", intermediateTex);
+          vertVars->setTexture("gTonalArtMap", mTonalArtMapGenData.pTex);
+
+          vertVars->setStructuredBuffer("gLineCounts", lineCountBuffer);
+          vertVars->setStructuredBuffer("gLineData", lineDataBuffer);
+          vertVars->getConstantBuffer("DataPerRun")->setBlob(&cbuf, 0, sizeof(TonalArtMapGenCbuffer));
+          mpRenderContext->pushComputeVars(vertVars);
+
+
+          mpRenderContext->resourceBarrier(mTonalArtMapGenData.pTex.get(), Falcor::Resource::State::UnorderedAccess);
+          mpRenderContext->dispatch(1, 1, 1);
+          tonalArtGenProg->removeDefine("_VERTICAL");
+          mpRenderContext->popComputeVars();
+      }
+
+      mpRenderContext->popComputeState();
+  }
+
+  //So this is writing into the mip levels. But the problem is that it's just blitting so the smaller mip levels 
+  //look blurred and shitty. The proper solution to this would require changing how tonal art maps are generated and 
+  //integrating that with this mip stuff. Basically, instead of each array slice being a random run of the the CS, you need to start 
+  //with array slice 0 mip level miplevels-1  and add a few lines. then go to miplevels-2 and adda  few more 
+  //ex w/ 4 array slice and 4 mip slice
+  // A0M3, A0M2, A0M1, A0M0, A1M3, A1M2, .... , A3M1, A3M0 
+  // Each run in that series needs to add a few lines to the base of the previous run. This makes it blend really nicely. 
+  // Also, the very large area of the floor makes the distinction between instances of the texture very obvious. This could be fixed 
+  // by changing the line gen alg. Lines needs to hit the edges in some cases so the edges are less obvious 
+
+  // So a roadmap for improving this might look like
+  //    1. Change line alg so it hits the sides so tiling is cleaner
+  //    2. Change line alg so each array slice builds on the previous 
+  //    3. Integrate mip levels into line alg and have mip levels similarly build up as described above 
+
+  for (uint32_t i = 1; i < mTonalArtMapGenData.pTex->getMipCount(); ++i)
   {
-      TonalArtMapGenData data;
-      float thickR = randUnitFloat();
-      float widthR = randUnitFloat();
-      data.lineThickness = lerp(mTonalArtMapGenParameters.minLineThickness, mTonalArtMapGenParameters.maxLineThickness, thickR);
-      data.lineWidth = lerp(mTonalArtMapGenParameters.minLineWidth, 1.0f, widthR);
-      data.lineY = randUnitFloat();
-      data.lineX = randUnitFloat();
-      lineData.push_back(data);
+      int mipSize = (int)(512.0 / pow(2.0, (double)i));
+      auto intMipTex = Texture::create2D(mipSize, mipSize, ResourceFormat::RGBA32Float, 1, 1, nullptr, flags);
+      
+      for (uint j = 0; j < numHatchTex; ++j)
+      {
+          mpRenderContext->blit(mTonalArtMapGenData.pTex->getSRV(i - 1, 1, j, 1), intMipTex->getRTV());
+
+          mpRenderContext->copySubresource(
+              mTonalArtMapGenData.pTex.get(), mTonalArtMapGenData.pTex->getSubresourceIndex(j, i), 
+              intMipTex.get(), 0);
+      }
   }
-  lineDataBuffer->setBlob(lineData.data(), 0, sizeof(TonalArtMapGenData) * totalLines);
-  mTonalArtMapGenData.pVars->setStructuredBuffer("gLineData", lineDataBuffer);
 
-  //Generate hash textures
-  mpRenderContext->pushComputeState(mTonalArtMapGenData.pState);
-  mpRenderContext->pushComputeVars(mTonalArtMapGenData.pVars);
-  mpRenderContext->dispatch(1, 1, 1);
-  mpRenderContext->popComputeVars();
-  mpRenderContext->popComputeState();
-
-  mHatchingData.pHatchTexArray->generateMips();
-  mHatchingData.pHatchTexArray->getMipCount();
+  //mHatchingData.pHatchTexArray->generateMips();
+  //mHatchingData.pHatchTexArray->getMipCount();
 
   loadScene(skDefaultScene);
 }
